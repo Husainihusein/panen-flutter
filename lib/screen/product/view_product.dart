@@ -153,7 +153,7 @@ class _ViewProductPageState extends State<ViewProductPage> {
     final res = await Supabase.instance.client
         .from('product_reviews')
         .select(
-          'id, rating, comment, user_id, created_at, user:users(username)',
+          'id, rating, comment, user_id, created_at, user:users(username, photo_url)',
         )
         .eq('product_id', widget.productId)
         .order('created_at', ascending: false);
@@ -1124,6 +1124,8 @@ class _ViewProductPageState extends State<ViewProductPage> {
                             final rating = review['rating'];
                             final comment = review['comment'];
                             final username = review['user']['username'];
+                            final profileImage =
+                                review['user']['photo_url'] ?? '';
                             final userId = review['user_id'];
                             final currentUser =
                                 Supabase.instance.client.auth.currentUser?.id;
@@ -1157,17 +1159,23 @@ class _ViewProductPageState extends State<ViewProductPage> {
                                           backgroundColor: const Color(
                                             0xFF58C1D1,
                                           ),
-                                          child: Text(
-                                            username
-                                                    ?.substring(0, 1)
-                                                    .toUpperCase() ??
-                                                "U",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
+                                          backgroundImage:
+                                              profileImage.isNotEmpty
+                                              ? NetworkImage(profileImage)
+                                              : null,
+                                          child: profileImage.isEmpty
+                                              ? Text(
+                                                  username
+                                                          ?.substring(0, 1)
+                                                          .toUpperCase() ??
+                                                      "U",
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                  ),
+                                                )
+                                              : null,
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
