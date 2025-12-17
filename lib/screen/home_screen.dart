@@ -179,207 +179,217 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Modern Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF58C1D1), Color(0xFF7DE0E6)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Discover',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Find amazing digital products',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Search Bar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: searchController,
-                            decoration: InputDecoration(
-                              hintText: searchType == 'Products'
-                                  ? 'Search products...'
-                                  : 'Search creators...',
-                              hintStyle: TextStyle(color: Colors.grey.shade400),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: Colors.grey.shade400,
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                            ),
-                            onChanged: (val) {
-                              setState(() {
-                                searchText = val.trim();
-                              });
-                            },
-                          ),
-                        ),
-                        if (searchType == 'Products')
-                          Container(
-                            height: 40,
-                            width: 1,
-                            color: Colors.grey.shade200,
-                          ),
-                        if (searchType == 'Products')
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: const BorderRadius.horizontal(
-                                right: Radius.circular(16),
-                              ),
-                              onTap: _showCategoryFilter,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.tune,
-                                      color: Colors.grey.shade600,
-                                      size: 20,
-                                    ),
-                                    if (selectedCategory != 'All') ...[
-                                      const SizedBox(width: 4),
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF58C1D1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Toggle Buttons
-                  Row(
-                    children: [
-                      _ToggleButton(
-                        label: 'Products',
-                        isSelected: searchType == 'Products',
-                        onTap: () {
-                          setState(() {
-                            searchType = 'Products';
-                            searchText = '';
-                            searchController.clear();
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      _ToggleButton(
-                        label: 'Creators',
-                        isSelected: searchType == 'Creators',
-                        onTap: () {
-                          setState(() {
-                            searchType = 'Creators';
-                            searchText = '';
-                            searchController.clear();
-                            selectedCategory = 'All';
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Active Filter Chip
-            if (selectedCategory != 'All' && searchType == 'Products')
+    return WillPopScope(
+      onWillPop: () async {
+        // Returning false prevents back navigation
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Modern Header
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF58C1D1), Color(0xFF7DE0E6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-                child: Wrap(
-                  spacing: 8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Chip(
-                      label: Text(selectedCategory),
-                      deleteIcon: const Icon(Icons.close, size: 18),
-                      onDeleted: () {
-                        setState(() {
-                          selectedCategory = 'All';
-                        });
-                      },
-                      backgroundColor: const Color(0xFF7DE0E6).withOpacity(0.2),
-                      labelStyle: const TextStyle(
-                        color: Color(0xFF58C1D1),
-                        fontWeight: FontWeight.w500,
+                    const Text(
+                      'Discover',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
                       ),
-                      deleteIconColor: const Color(0xFF58C1D1),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Find amazing digital products',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Search Bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: searchController,
+                              decoration: InputDecoration(
+                                hintText: searchType == 'Products'
+                                    ? 'Search products...'
+                                    : 'Search creators...',
+                                hintStyle: TextStyle(
+                                  color: Colors.grey.shade400,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.search,
+                                  color: Colors.grey.shade400,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                              ),
+                              onChanged: (val) {
+                                setState(() {
+                                  searchText = val.trim();
+                                });
+                              },
+                            ),
+                          ),
+                          if (searchType == 'Products')
+                            Container(
+                              height: 40,
+                              width: 1,
+                              color: Colors.grey.shade200,
+                            ),
+                          if (searchType == 'Products')
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: const BorderRadius.horizontal(
+                                  right: Radius.circular(16),
+                                ),
+                                onTap: _showCategoryFilter,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.tune,
+                                        color: Colors.grey.shade600,
+                                        size: 20,
+                                      ),
+                                      if (selectedCategory != 'All') ...[
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF58C1D1),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Toggle Buttons
+                    Row(
+                      children: [
+                        _ToggleButton(
+                          label: 'Products',
+                          isSelected: searchType == 'Products',
+                          onTap: () {
+                            setState(() {
+                              searchType = 'Products';
+                              searchText = '';
+                              searchController.clear();
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        _ToggleButton(
+                          label: 'Creators',
+                          isSelected: searchType == 'Creators',
+                          onTap: () {
+                            setState(() {
+                              searchType = 'Creators';
+                              searchText = '';
+                              searchController.clear();
+                              selectedCategory = 'All';
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-            // Content List
-            Expanded(
-              child: loading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF58C1D1),
+              // Active Filter Chip
+              if (selectedCategory != 'All' && searchType == 'Products')
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      Chip(
+                        label: Text(selectedCategory),
+                        deleteIcon: const Icon(Icons.close, size: 18),
+                        onDeleted: () {
+                          setState(() {
+                            selectedCategory = 'All';
+                          });
+                        },
+                        backgroundColor: const Color(
+                          0xFF7DE0E6,
+                        ).withOpacity(0.2),
+                        labelStyle: const TextStyle(
+                          color: Color(0xFF58C1D1),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        deleteIconColor: const Color(0xFF58C1D1),
                       ),
-                    )
-                  : searchType == 'Products'
-                  ? _buildProductsList()
-                  : _buildCreatorsList(),
-            ),
-          ],
+                    ],
+                  ),
+                ),
+
+              // Content List
+              Expanded(
+                child: loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF58C1D1),
+                        ),
+                      )
+                    : searchType == 'Products'
+                    ? _buildProductsList()
+                    : _buildCreatorsList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
