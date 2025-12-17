@@ -52,13 +52,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
       products = List<Map<String, dynamic>>.from(productsResponse);
 
-      // Fetch all creators/users EXCEPT current user
-      final currentUserId = supabase.auth.currentUser?.id;
+      // Fetch all approved creators (from creators table)
       final creatorsResponse = await supabase
-          .from('users')
-          .select()
-          .neq('id', currentUserId ?? '');
-      creators = List<Map<String, dynamic>>.from(creatorsResponse);
+          .from('creators')
+          .select('user_id, users(id, username, photo_url, name)')
+          .eq('status', 'approved');
+
+      creators = List<Map<String, dynamic>>.from(creatorsResponse).map((c) {
+        final user = c['users'];
+        return {
+          'id': user['id'],
+          'username': user['username'],
+          'photo_url': user['photo_url'],
+          'name': user['name'],
+        };
+      }).toList();
     } catch (e) {
       print('Error loading data: $e');
       products = [];
