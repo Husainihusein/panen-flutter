@@ -1,0 +1,477 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
+class AddProductScreen extends StatefulWidget {
+  const AddProductScreen({super.key});
+
+  @override
+  State<AddProductScreen> createState() => _AddProductScreenState();
+}
+
+class _AddProductScreenState extends State<AddProductScreen> {
+  final supabase = Supabase.instance.client;
+
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController priceController = TextEditingController();
+  final TextEditingController videoUrlController = TextEditingController();
+  final TextEditingController fileLinkController = TextEditingController();
+
+  String? selectedCategory;
+  String? selectedNiche;
+
+  File? productImage;
+  File? previewImage;
+  File? uploadedFile;
+
+  final ImagePicker picker = ImagePicker();
+  bool useExternalLink = false;
+
+  Future<String> uploadFile(File file, String bucketName) async {
+    final user = supabase.auth.currentUser!;
+    final fileName =
+        '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+    await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
+    return supabase.storage.from(bucketName).getPublicUrl(fileName);
+  }
+
+  // Categories
+  final List<Map<String, dynamic>> categories = [
+    {'label': 'E-book', 'icon': FontAwesomeIcons.book},
+    {'label': 'Template', 'icon': FontAwesomeIcons.fileLines},
+    {'label': 'Audio', 'icon': FontAwesomeIcons.music},
+    {'label': 'Video', 'icon': FontAwesomeIcons.video},
+    {'label': 'Graphic Design', 'icon': FontAwesomeIcons.penFancy},
+    {'label': 'Software', 'icon': FontAwesomeIcons.code},
+    {'label': 'Others', 'icon': FontAwesomeIcons.box},
+  ];
+
+  final List<String> niches = [
+    'Marketing',
+    'Education',
+    'Finance',
+    'Tech',
+    'Design',
+    'Lifestyle',
+    'Fitness',
+    'Health',
+    'Other',
+  ];
+
+  // Pick product image
+  Future<void> pickProductImage() async {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) setState(() => productImage = File(image.path));
+  }
+
+  // Pick preview image
+  Future<void> pickPreviewImage() async {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) setState(() => previewImage = File(image.path));
+  }
+
+  // Pick digital file
+  Future<void> pickDigitalFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: [
+        'pdf',
+        'doc',
+        'docx',
+        'xlsx',
+        'pptx',
+        'zip',
+        'rar',
+        'txt',
+        'mp3',
+        'wav',
+        'mp4',
+        'mov',
+        'jpg',
+        'png',
+        'gif',
+      ],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      setState(() => uploadedFile = File(result.files.single.path!));
+    }
+  }
+
+  // Add Product
+  Future<void> addProduct() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("User not logged in")));
+      return;
+    }
+
+    // Validate required fields
+    if (titleController.text.isEmpty ||
+        descriptionController.text.isEmpty ||
+        priceController.text.isEmpty ||
+        selectedCategory == null ||
+        selectedNiche == null ||
+        productImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all required fields.")),
+      );
+      return;
+    }
+
+    try {
+      // ------------------ Upload Thumbnail ------------------
+      final thumbPath =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${productImage!.path.split('/').last}';
+      print('Uploading thumbnail to: $thumbPath');
+      await supabase.storage
+          .from('product-thumbnails')
+          .upload(
+            thumbPath,
+            productImage!,
+            fileOptions: const FileOptions(upsert: true),
+          );
+      final thumbnailUrl = supabase.storage
+          .from('product-thumbnails')
+          .getPublicUrl(thumbPath);
+
+      // ------------------ Upload Preview ------------------
+      String previewUrl = '';
+      if (previewImage != null) {
+        final previewPath =
+            '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${previewImage!.path.split('/').last}';
+        print('Uploading preview to: $previewPath');
+        await supabase.storage
+            .from('product-previews')
+            .upload(
+              previewPath,
+              previewImage!,
+              fileOptions: const FileOptions(upsert: true),
+            );
+        previewUrl = supabase.storage
+            .from('product-previews')
+            .getPublicUrl(previewPath);
+      }
+
+      // ------------------ Upload Product File ------------------
+      String finalFileUrl = fileLinkController.text.trim();
+      if (!useExternalLink && uploadedFile != null) {
+        final filePath =
+            '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${uploadedFile!.path.split('/').last}';
+        print('Uploading file to: $filePath');
+        await supabase.storage
+            .from('product-files')
+            .upload(
+              filePath,
+              uploadedFile!,
+              fileOptions: const FileOptions(upsert: true),
+            );
+        finalFileUrl = supabase.storage
+            .from('product-files')
+            .getPublicUrl(filePath);
+      }
+
+      // ------------------ Insert Product ------------------
+      final insertedRows = await supabase.from('products').insert({
+        'owner_id': user.id,
+        'title': titleController.text.trim(),
+        'description': descriptionController.text.trim(),
+        'price': double.tryParse(priceController.text) ?? 0.0,
+        'category': selectedCategory,
+        'niche': selectedNiche,
+        'thumbnail_url': thumbnailUrl,
+        'preview_image_url': previewUrl,
+        'video_url': videoUrlController.text.trim(),
+        'file_url': finalFileUrl,
+        'views': 0,
+        'status': 'review',
+        'is_active': true,
+      }).select(); // optional: returns inserted rows
+
+      print('Product inserted successfully! Rows: $insertedRows');
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Success"),
+          content: const Text("Product added successfully!"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Go back
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      print('Add product failed: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Add product failed: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Header
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  "Add Product",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Title
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: "Product Title",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Product Image
+            const Text(
+              "Product Image",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: pickProductImage,
+              child: Container(
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: productImage == null
+                      ? const Icon(
+                          Icons.add_a_photo,
+                          size: 40,
+                          color: Colors.grey,
+                        )
+                      : Image.file(productImage!, fit: BoxFit.cover),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Preview Image
+            const Text(
+              "Preview Image",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: pickPreviewImage,
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: previewImage == null
+                      ? const Text(
+                          "Add Preview Image",
+                          style: TextStyle(color: Colors.grey),
+                        )
+                      : Image.file(previewImage!, fit: BoxFit.cover),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Category dropdown
+            DropdownButtonFormField<String>(
+              value: selectedCategory,
+              items: categories.map((cat) {
+                return DropdownMenuItem<String>(
+                  value: cat['label'],
+                  child: Row(
+                    children: [
+                      FaIcon(cat['icon'], size: 16),
+                      const SizedBox(width: 8),
+                      Text(cat['label']),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => selectedCategory = val),
+              decoration: const InputDecoration(
+                labelText: "Category",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Niche dropdown
+            DropdownButtonFormField<String>(
+              value: selectedNiche,
+              items: niches
+                  .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                  .toList(),
+              onChanged: (val) => setState(() => selectedNiche = val),
+              decoration: const InputDecoration(
+                labelText: "Niche",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Price
+            TextField(
+              controller: priceController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Price",
+                border: OutlineInputBorder(),
+                prefixText: "RM ",
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Description
+            TextField(
+              controller: descriptionController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: "Description",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Video URL
+            TextField(
+              controller: videoUrlController,
+              decoration: const InputDecoration(
+                labelText: "Preview Video URL",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // File or Link
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: !useExternalLink
+                          ? Colors.blue
+                          : Colors.grey.shade400,
+                    ),
+                    onPressed: () => setState(() => useExternalLink = false),
+                    child: const Text("Upload File"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: useExternalLink
+                          ? Colors.blue
+                          : Colors.grey.shade400,
+                    ),
+                    onPressed: () => setState(() => useExternalLink = true),
+                    child: const Text("External Link"),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            if (useExternalLink)
+              TextField(
+                controller: fileLinkController,
+                decoration: const InputDecoration(
+                  labelText: "External File URL",
+                  border: OutlineInputBorder(),
+                ),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: pickDigitalFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: const Text("Choose File"),
+                  ),
+                  const SizedBox(height: 8),
+                  if (uploadedFile != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.insert_drive_file),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              uploadedFile!.path.split('/').last,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+
+            const SizedBox(height: 40),
+
+            // Submit
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: addProduct,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF58C1D1),
+                ),
+                child: const Text(
+                  "Add Product",
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
