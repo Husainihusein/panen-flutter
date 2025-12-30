@@ -607,22 +607,41 @@ class _ViewProductPageState extends State<ViewProductPage> {
       return;
     }
 
-    // 1️⃣ Request storage permission on Android
-    if (Platform.isAndroid) {
-      if (await Permission.manageExternalStorage.isGranted == false) {
-        final result = await Permission.manageExternalStorage.request();
-        if (!result.isGranted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Storage permission is required to download files'),
-            ),
-          );
+    try {
+      // Check if this is a Supabase file (direct download)
+      final isSupabaseFile =
+          widget.fileUrl.contains('.supabase.co/storage/') &&
+          widget.fileUrl.contains('product-files');
+
+      if (!isSupabaseFile) {
+        // If it's a cloud link (Google Drive / Dropbox / etc.), just open externally
+        final uri = Uri.tryParse(widget.fileUrl);
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
           return;
+        } else {
+          throw Exception('Invalid URL or cannot open link');
         }
       }
-    }
 
-    try {
+      // --- Existing download logic for Supabase file ---
+      // 1️⃣ Request storage permission on Android
+      if (Platform.isAndroid) {
+        if (await Permission.manageExternalStorage.isGranted == false) {
+          final result = await Permission.manageExternalStorage.request();
+          if (!result.isGranted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Storage permission is required to download files',
+                ),
+              ),
+            );
+            return;
+          }
+        }
+      }
+
       // 2️⃣ Get directory
       Directory? directory;
       if (Platform.isAndroid) {
@@ -636,9 +655,8 @@ class _ViewProductPageState extends State<ViewProductPage> {
         directory = await getDownloadsDirectory();
       }
 
-      if (directory == null) {
+      if (directory == null)
         throw Exception('Could not access storage directory');
-      }
 
       // 3️⃣ Determine file name
       final fileName =
@@ -648,29 +666,23 @@ class _ViewProductPageState extends State<ViewProductPage> {
 
       debugPrint('Downloading to: $filePath');
 
-      // 4️⃣ Check if it's a Supabase storage URL
-      String downloadUrl = widget.fileUrl;
-      if (widget.fileUrl.contains('.supabase.co/storage/') &&
-          widget.fileUrl.contains('product-files')) {
-        final uri = Uri.parse(widget.fileUrl);
-        final fullPath = uri.path;
-        final productFilesIndex = fullPath.indexOf('product-files/');
-        if (productFilesIndex == -1) {
-          throw Exception('Invalid product-files URL format');
-        }
+      // 4️⃣ Generate signed URL for Supabase
+      final uri = Uri.parse(widget.fileUrl);
+      final fullPath = uri.path;
+      final productFilesIndex = fullPath.indexOf('product-files/');
+      if (productFilesIndex == -1)
+        throw Exception('Invalid product-files URL format');
 
-        final filePathInBucket = fullPath.substring(
-          productFilesIndex + 'product-files/'.length,
-        );
+      final filePathInBucket = fullPath.substring(
+        productFilesIndex + 'product-files/'.length,
+      );
 
-        downloadUrl = await supabase.storage
-            .from('product-files')
-            .createSignedUrl(filePathInBucket, 3600);
+      final downloadUrl = await supabase.storage
+          .from('product-files')
+          .createSignedUrl(filePathInBucket, 3600);
 
-        if (downloadUrl.isEmpty) {
-          throw Exception('Failed to generate download link');
-        }
-      }
+      if (downloadUrl.isEmpty)
+        throw Exception('Failed to generate download link');
 
       // 5️⃣ Download using Dio
       final dio = Dio();
@@ -679,7 +691,7 @@ class _ViewProductPageState extends State<ViewProductPage> {
       // 6️⃣ Open file
       await OpenFile.open(filePath);
 
-      // 7️⃣ Record download in Supabase (only if not already recorded)
+      // 7️⃣ Record download in Supabase
       final existing = await supabase
           .from('product_downloads')
           .select()
