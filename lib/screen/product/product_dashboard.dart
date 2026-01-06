@@ -30,12 +30,14 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
     try {
       final user = supabase.auth.currentUser;
       if (user == null) return;
+      debugPrint('Current user: ${user?.id}');
 
       // Fetch products from the view with pre-calculated sold and earnings
       final data = await supabase
           .from('product_sales')
           .select('*')
           .eq('owner_id', user.id)
+          .eq('is_deleted', false)
           .order('product_id', ascending: false);
 
       final List<dynamic> fetched = data as List<dynamic>;
@@ -65,7 +67,11 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
 
   Future<void> _deleteProduct(String productId) async {
     try {
-      await supabase.from('products').delete().eq('id', productId);
+      await supabase
+          .from('products')
+          .update({'is_deleted': true})
+          .eq('id', productId);
+
       setState(() {
         products.removeWhere((p) => p['id'] == productId);
       });
@@ -76,6 +82,8 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
       ).showSnackBar(const SnackBar(content: Text('Failed to delete product')));
     }
   }
+
+  double totalWithdrawn = 0.0; // new state variable
 
   Future<void> _fetchWithdrawals() async {
     try {
@@ -427,7 +435,7 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                         ),
                       )
                     : ListView.builder(
-                        padding: EdgeInsets.all(16),
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 100),
                         itemCount: products.length,
                         itemBuilder: (context, index) {
                           final product = products[index];
