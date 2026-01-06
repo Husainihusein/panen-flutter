@@ -96,6 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           .select('*, owner:users!products_owner_fk(id, username, photo_url)')
           .eq('owner_id', uid)
           .eq('status', 'approved')
+          .eq('is_deleted', false)
           .order('created_at', ascending: false);
 
       setState(() {

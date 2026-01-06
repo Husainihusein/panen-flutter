@@ -49,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .select('*, owner:users!products_owner_fk(id, username, photo_url)')
           .eq('status', 'approved')
           .eq('is_active', true)
+          .eq('is_deleted', false)
           .order('created_at', ascending: false);
 
       products = List<Map<String, dynamic>>.from(productsResponse);
