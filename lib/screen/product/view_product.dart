@@ -655,8 +655,9 @@ class _ViewProductPageState extends State<ViewProductPage> {
         directory = await getDownloadsDirectory();
       }
 
-      if (directory == null)
+      if (directory == null) {
         throw Exception('Could not access storage directory');
+      }
 
       // 3️⃣ Determine file name
       final fileName =
@@ -666,30 +667,55 @@ class _ViewProductPageState extends State<ViewProductPage> {
 
       debugPrint('Downloading to: $filePath');
 
-      // 4️⃣ Generate signed URL for Supabase
+      // 4️⃣ Generate signed URL for Supabase - ✅ FIXED VERSION
       final uri = Uri.parse(widget.fileUrl);
-      final fullPath = uri.path;
-      final productFilesIndex = fullPath.indexOf('product-files/');
-      if (productFilesIndex == -1)
-        throw Exception('Invalid product-files URL format');
+      final pathSegments = uri.pathSegments;
 
-      final filePathInBucket = fullPath.substring(
-        productFilesIndex + 'product-files/'.length,
-      );
+      // Find the index of 'product-files' in the path
+      int bucketIndex = -1;
+      for (int i = 0; i < pathSegments.length; i++) {
+        if (pathSegments[i] == 'product-files') {
+          bucketIndex = i;
+          break;
+        }
+      }
+
+      if (bucketIndex == -1 || bucketIndex >= pathSegments.length - 1) {
+        throw Exception('Invalid product-files URL format');
+      }
+
+      // Get everything AFTER 'product-files'
+      final filePathInBucket = pathSegments.sublist(bucketIndex + 1).join('/');
+
+      debugPrint('🔍 File path in bucket: $filePathInBucket');
 
       final downloadUrl = await supabase.storage
           .from('product-files')
           .createSignedUrl(filePathInBucket, 3600);
 
-      if (downloadUrl.isEmpty)
+      if (downloadUrl.isEmpty) {
         throw Exception('Failed to generate download link');
+      }
+
+      debugPrint('🔍 Signed URL generated successfully');
 
       // 5️⃣ Download using Dio
       final dio = Dio();
       await dio.download(downloadUrl, filePath);
 
-      // 6️⃣ Open file
-      await OpenFile.open(filePath);
+      // 6️⃣ Open file with correct MIME type
+      final fileExtension = filePath.split('.').last.toLowerCase();
+      String? mimeType;
+
+      if (fileExtension == 'pdf') {
+        mimeType = 'application/pdf';
+      } else if (fileExtension == 'jpg' || fileExtension == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (fileExtension == 'png') {
+        mimeType = 'image/png';
+      }
+
+      await OpenFile.open(filePath, type: mimeType);
 
       // 7️⃣ Record download in Supabase
       final existing = await supabase
@@ -1006,53 +1032,50 @@ class _ViewProductPageState extends State<ViewProductPage> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  const Text(
-                    'Preview Video',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-                  if (widget.videoUrl.isEmpty)
-                    const Text('No video link available')
-                  else
+                  // ================= PREVIEW VIDEO =================
+                  if (widget.videoUrl.isNotEmpty) ...[
+                    const SizedBox(height: 30),
+                    const Text(
+                      'Preview Video',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     GestureDetector(
                       onTap: () => _launchExternalURL(widget.videoUrl),
                       child: _buildVideoWidget(),
                     ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Preview Image',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-                  widget.previewImageUrl != null &&
-                          widget.previewImageUrl!.isNotEmpty
-                      ? GestureDetector(
-                          onTap: () => _showPreviewDialog(),
-                          child: Container(
-                            height: 120,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              image: DecorationImage(
-                                image: NetworkImage(widget.previewImageUrl!),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        )
-                      : Container(
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'No preview available',
-                            style: TextStyle(color: Colors.black54),
+                  ],
+
+                  // ================= PREVIEW IMAGE =================
+                  if (widget.previewImageUrl != null &&
+                      widget.previewImageUrl!.isNotEmpty) ...[
+                    const SizedBox(height: 30),
+                    const Text(
+                      'Preview Image',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => _showPreviewDialog(),
+                      child: Container(
+                        height: 120,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: NetworkImage(widget.previewImageUrl!),
+                            fit: BoxFit.cover,
                           ),
                         ),
-                  const SizedBox(height: 30),
-
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
                   // Buy / Download Button
                   SizedBox(
                     width: double.infinity,
