@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 
 class EditProductScreen extends StatefulWidget {
@@ -27,8 +26,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
   String? selectedCategory;
   File? productImage;
   File? previewImage;
-  File? uploadedFile;
-  bool useExternalLink = false;
 
   String? existingThumbnailUrl;
   String? existingPreviewUrl;
@@ -93,34 +90,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (image != null) setState(() => previewImage = File(image.path));
   }
 
-  Future<void> pickDigitalFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      type: FileType.custom,
-      allowedExtensions: [
-        'pdf',
-        'doc',
-        'docx',
-        'xlsx',
-        'pptx',
-        'zip',
-        'rar',
-        'txt',
-        'mp3',
-        'wav',
-        'mp4',
-        'mov',
-        'jpg',
-        'png',
-        'gif',
-      ],
-    );
-
-    if (result != null && result.files.single.path != null) {
-      setState(() => uploadedFile = File(result.files.single.path!));
-    }
-  }
-
   Future<String> compressImageToBase64(
     File file, {
     int maxWidth = 512,
@@ -155,7 +124,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final user = supabase.auth.currentUser!;
       String thumbnailUrl = existingThumbnailUrl ?? '';
       String previewUrl = existingPreviewUrl ?? '';
-      String finalFileUrl = fileLinkController.text.trim();
+      String finalFileUrl = fileLinkController.text.trim(); // keep file as-is
 
       // ------------------ Upload Thumbnail ------------------
       if (productImage != null) {
@@ -189,22 +158,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
             .getPublicUrl(previewPath);
       }
 
-      // ------------------ Upload Product File ------------------
-      if (uploadedFile != null && !useExternalLink) {
-        final filePath =
-            '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${uploadedFile!.path.split('/').last}';
-        await supabase.storage
-            .from('product-files')
-            .upload(
-              filePath,
-              uploadedFile!,
-              fileOptions: const FileOptions(upsert: true),
-            );
-        finalFileUrl = supabase.storage
-            .from('product-files')
-            .getPublicUrl(filePath);
-      }
-
       // ------------------ Update Product ------------------
       final updatedRows = await supabase
           .from('products')
@@ -216,11 +169,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
             'thumbnail_url': thumbnailUrl,
             'preview_image_url': previewUrl,
             'video_url': videoUrlController.text.trim(),
-            'file_url': finalFileUrl,
-            'status': 'review', // reset to review
+            'file_url': finalFileUrl, // remain unchanged
           })
           .eq('id', widget.productId)
-          .select(); // returns List<Map<String,dynamic>>
+          .select();
 
       if (updatedRows == null || updatedRows.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -393,21 +345,37 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Digital Product URL
+            // ------------------ File info only ------------------
             const Text(
-              "Digital Product",
+              "Digital Product (File cannot be changed)",
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: fileLinkController,
-              decoration: const InputDecoration(
-                labelText: "File URL or Link",
-                prefixIcon: Icon(Icons.link),
-                border: OutlineInputBorder(),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.insert_drive_file, color: Colors.grey),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      fileLinkController.text.isNotEmpty
+                          ? fileLinkController.text.split('/').last
+                          : "No file available",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             // Update Product button
             SizedBox(
