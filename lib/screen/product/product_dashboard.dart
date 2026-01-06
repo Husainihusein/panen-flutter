@@ -77,8 +77,6 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
     }
   }
 
-  double totalWithdrawn = 0.0; // new state variable
-
   Future<void> _fetchWithdrawals() async {
     try {
       final user = supabase.auth.currentUser;

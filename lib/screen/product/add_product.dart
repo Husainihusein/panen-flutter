@@ -31,6 +31,46 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final ImagePicker picker = ImagePicker();
   bool useExternalLink = false;
 
+  String _getMimeType(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+
+    switch (extension) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'zip':
+        return 'application/zip';
+      case 'rar':
+        return 'application/x-rar-compressed';
+      case 'txt':
+        return 'text/plain';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'wav':
+        return 'audio/wav';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
   Future<String> uploadFile(File file, String bucketName) async {
     final user = supabase.auth.currentUser!;
     final fileName =
@@ -168,12 +208,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
         final filePath =
             '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${uploadedFile!.path.split('/').last}';
         print('Uploading file to: $filePath');
+
+        // ✅ Get the correct MIME type
+        final fileName = uploadedFile!.path.split('/').last;
+        final mimeType = _getMimeType(fileName);
+
         await supabase.storage
             .from('product-files')
             .upload(
               filePath,
               uploadedFile!,
-              fileOptions: const FileOptions(upsert: true),
+              fileOptions: FileOptions(upsert: true, contentType: mimeType),
             );
         finalFileUrl = supabase.storage
             .from('product-files')
@@ -380,79 +425,148 @@ class _AddProductScreenState extends State<AddProductScreen> {
             const SizedBox(height: 24),
 
             // File or Link
+            // ------------------ File / External Link Section ------------------
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: !useExternalLink
-                          ? Colors.blue
-                          : Colors.grey.shade400,
+                  child: GestureDetector(
+                    onTap: () => setState(() => useExternalLink = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: !useExternalLink
+                            ? Colors.blue
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: !useExternalLink
+                            ? [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Center(
+                        child: Text(
+                          "Upload File",
+                          style: TextStyle(
+                            color: !useExternalLink
+                                ? Colors.white
+                                : Colors.grey[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
-                    onPressed: () => setState(() => useExternalLink = false),
-                    child: const Text("Upload File"),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: useExternalLink
-                          ? Colors.blue
-                          : Colors.grey.shade400,
+                  child: GestureDetector(
+                    onTap: () => setState(() => useExternalLink = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: useExternalLink
+                            ? Colors.blue
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: useExternalLink
+                            ? [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Center(
+                        child: Text(
+                          "External Link",
+                          style: TextStyle(
+                            color: useExternalLink
+                                ? Colors.white
+                                : Colors.grey[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
-                    onPressed: () => setState(() => useExternalLink = true),
-                    child: const Text("External Link"),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
-            if (useExternalLink)
-              TextField(
-                controller: fileLinkController,
-                decoration: const InputDecoration(
-                  labelText: "External File URL",
-                  border: OutlineInputBorder(),
-                ),
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: pickDigitalFile,
-                    icon: const Icon(Icons.attach_file),
-                    label: const Text("Choose File"),
-                  ),
-                  const SizedBox(height: 8),
-                  if (uploadedFile != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
+            // ------------------ Conditional Box Below ------------------
+            useExternalLink
+                ? Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade300, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.shade100.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: fileLinkController,
+                      decoration: const InputDecoration(
+                        labelText: "External File URL",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: pickDigitalFile,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 12,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.blue.shade300,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.shade100.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.insert_drive_file),
+                          const Icon(Icons.attach_file, color: Colors.blue),
                           const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              uploadedFile!.path.split('/').last,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
+                          Text(
+                            uploadedFile == null
+                                ? "Choose File"
+                                : uploadedFile!.path.split('/').last,
+                            style: TextStyle(
+                              color: Colors.blue.shade800,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
                     ),
-                ],
-              ),
-
-            const SizedBox(height: 40),
+                  ),
+            const SizedBox(height: 24),
 
             // Submit
             SizedBox(
