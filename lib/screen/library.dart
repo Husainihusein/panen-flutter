@@ -13,62 +13,12 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   bool _isLoading = true;
-  List<dynamic> _downloads = [];
   List<dynamic> _savedProducts = [];
-  int _selectedTab = 0;
 
   @override
   void initState() {
     super.initState();
-    _fetchDownloads();
     _fetchSavedProducts();
-  }
-
-  Future<void> _fetchDownloads() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    try {
-      final response = await Supabase.instance.client
-          .from('product_downloads')
-          .select('''
-            *,
-            product:products(
-              id,
-              title,
-              price,
-              owner_id,
-              thumbnail_url,
-              file_url,
-              description,
-              video_url,
-              preview_image_url,
-              owner:users(username)
-            )
-          ''')
-          .eq('user_id', user.id);
-
-      if (!mounted) return;
-
-      debugPrint('Downloads response: $response');
-      debugPrint('Downloads count: ${(response as List).length}');
-
-      setState(() {
-        _downloads = response as List<dynamic>;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error fetching downloads: $e');
-      if (!mounted) return;
-
-      setState(() {
-        _downloads = [];
-        _isLoading = false;
-      });
-    }
   }
 
   Future<void> _fetchSavedProducts() async {
@@ -93,18 +43,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
               description,
               video_url,
               preview_image_url,
-              owner:users(username)
+              owner:users(username, photo_url)
             )
           ''')
           .eq('user_id', user.id);
 
       if (!mounted) return;
 
-      debugPrint('Saved products response: $response');
-      debugPrint('Saved products count: ${(response as List).length}');
-
       setState(() {
         _savedProducts = response as List<dynamic>;
+        _isLoading = false;
       });
     } catch (e) {
       debugPrint('Error fetching saved products: $e');
@@ -112,6 +60,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
       setState(() {
         _savedProducts = [];
+        _isLoading = false;
       });
     }
   }
@@ -134,69 +83,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              // Custom Header
+              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF58C1D1).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            LucideIcons.library,
-                            color: Color(0xFF58C1D1),
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Library',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2D3436),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Custom Tab Selector
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: const Color(0xFF58C1D1).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildTabButton(
-                              label: 'Downloads',
-                              icon: LucideIcons.download,
-                              index: 0,
-                              count: _downloads.length,
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildTabButton(
-                              label: 'Saved',
-                              icon: LucideIcons.bookmark,
-                              index: 1,
-                              count: _savedProducts.length,
-                            ),
-                          ),
-                        ],
+                      child: const Icon(
+                        LucideIcons.bookmark,
+                        color: Color(0xFF58C1D1),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Saved',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D3436),
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
@@ -213,17 +124,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           ),
                         ),
                       )
-                    : _selectedTab == 0
-                    ? _buildProductGrid(
-                        _downloads,
-                        emptyMessage: 'No downloads yet',
-                        emptyIcon: LucideIcons.download,
-                      )
-                    : _buildProductGrid(
-                        _savedProducts,
-                        emptyMessage: 'No saved products',
-                        emptyIcon: LucideIcons.bookmark,
-                      ),
+                    : _buildProductGrid(),
               ),
             ],
           ),
@@ -232,72 +133,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildTabButton({
-    required String label,
-    required IconData icon,
-    required int index,
-    required int count,
-  }) {
-    final isSelected = _selectedTab == index;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF58C1D1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isSelected ? Colors.white : Colors.grey.shade600,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey.shade600,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.white.withOpacity(0.3)
-                      : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  count.toString(),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : Colors.grey.shade700,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductGrid(
-    List<dynamic> products, {
-    required String emptyMessage,
-    required IconData emptyIcon,
-  }) {
-    if (products.isEmpty) {
+  Widget _buildProductGrid() {
+    if (_savedProducts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -308,11 +145,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 color: Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
-              child: Icon(emptyIcon, size: 48, color: Colors.grey.shade400),
+              child: Icon(
+                LucideIcons.bookmark,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
-              emptyMessage,
+              'No saved products',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey.shade600,
@@ -332,11 +173,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: products.length,
+      itemCount: _savedProducts.length,
       itemBuilder: (context, index) {
-        final item = products[index];
+        final item = _savedProducts[index];
         final product = item['product'];
-
         if (product == null) return const SizedBox();
 
         final title = product['title'] ?? 'Untitled';
@@ -346,10 +186,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final videoUrl = product['video_url'] ?? '';
         final price = product['price'] ?? 0;
         final ownerId = product['owner_id'];
+        final creator = product['owner']?['username'] ?? 'Unknown';
         final photoUrl = product['owner']?['photo_url'];
-        final creator = product['owner'] != null
-            ? product['owner']['username'] ?? 'Unknown'
-            : 'Unknown';
 
         return GestureDetector(
           onTap: () {
@@ -381,63 +219,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Thumbnail
                 Expanded(
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                        child: thumbnail.isNotEmpty
-                            ? Image.network(
-                                thumbnail,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                color: Colors.grey.shade200,
-                                child: Icon(
-                                  LucideIcons.image,
-                                  size: 40,
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                      ),
-                      // Badge
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: thumbnail.isNotEmpty
+                        ? Image.network(
+                            thumbnail,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: Colors.grey.shade200,
+                            child: Icon(
+                              LucideIcons.image,
+                              size: 40,
+                              color: Colors.grey.shade400,
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF58C1D1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _selectedTab == 0
-                                    ? LucideIcons.download
-                                    : LucideIcons.bookmark,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-                // Info
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -445,14 +248,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     children: [
                       Text(
                         title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D3436),
-                          height: 1.3,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -461,8 +263,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           fontSize: 12,
                           color: Colors.grey.shade600,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
                       Container(

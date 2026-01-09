@@ -53,6 +53,8 @@ class _ViewProductPageState extends State<ViewProductPage> {
   bool _isVideoReady = false;
 
   bool _hasPurchased = false;
+  String? _currentPurchaseId;
+  bool _canDownload = false;
   bool _isCheckingPurchase = true;
   RealtimeChannel? _purchaseChannel;
 
@@ -79,6 +81,7 @@ class _ViewProductPageState extends State<ViewProductPage> {
     _initDeepLinks();
     _incrementViews();
     _checkIfBookmarked();
+    _checkPurchase();
     _fetchReviews();
   }
 
@@ -144,6 +147,49 @@ class _ViewProductPageState extends State<ViewProductPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    }
+  }
+
+  Future<void> _checkPurchase() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final response = await Supabase.instance.client
+          .from('purchases')
+          .select('id, status')
+          .eq('user_id', userId)
+          .eq('product_id', widget.productId)
+          .eq('status', 'paid')
+          .maybeSingle();
+
+      setState(() {
+        _hasPurchased = response != null;
+        _currentPurchaseId = response?['id']; // store purchase id
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error checking purchase: $e')));
+      }
+    }
+  }
+
+  void _handleDownloadNow() async {
+    await _handleDownload(); // your existing download logic
+    if (!mounted) return;
+
+    // Show the "Did you get your product?" popup
+    final gotFile = await showDialog<bool>(
+      context: context,
+      builder: (_) => GotFileDialog(),
+    );
+
+    if (gotFile == true) {
+      setState(() {
+        _canDownload = false; // reset button to Buy Now
+      });
     }
   }
 
@@ -574,10 +620,28 @@ class _ViewProductPageState extends State<ViewProductPage> {
         throw Exception('Payment URL not found in response');
       }
 
-      // Open Billplz payment page
+      // Open Billplz payment page externally
       final uri = Uri.parse(billUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+        // After payment page opens, set _canDownload = true
+        // So the button now shows "Download Now"
+        setState(() {
+          _canDownload = true;
+        });
+
+        // Optional: show a fun toast/snackbar
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment initiated! You can now download your product.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
         throw Exception('Could not launch payment URL');
       }
@@ -608,13 +672,13 @@ class _ViewProductPageState extends State<ViewProductPage> {
     }
 
     try {
-      // Check if this is a Supabase file (direct download)
+      // 1️⃣ Check if this is a Supabase file
       final isSupabaseFile =
           widget.fileUrl.contains('.supabase.co/storage/') &&
           widget.fileUrl.contains('product-files');
 
       if (!isSupabaseFile) {
-        // If it's a cloud link (Google Drive / Dropbox / etc.), just open externally
+        // External link (Google Drive, Dropbox, etc.)
         final uri = Uri.tryParse(widget.fileUrl);
         if (uri != null && await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -624,10 +688,9 @@ class _ViewProductPageState extends State<ViewProductPage> {
         }
       }
 
-      // --- Existing download logic for Supabase file ---
-      // 1️⃣ Request storage permission on Android
+      // 2️⃣ Request storage permission (Android)
       if (Platform.isAndroid) {
-        if (await Permission.manageExternalStorage.isGranted == false) {
+        if (!await Permission.manageExternalStorage.isGranted) {
           final result = await Permission.manageExternalStorage.request();
           if (!result.isGranted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -642,105 +705,163 @@ class _ViewProductPageState extends State<ViewProductPage> {
         }
       }
 
-      // 2️⃣ Get directory
+      // 3️⃣ Get storage directory
       Directory? directory;
       if (Platform.isAndroid) {
         directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
+        if (!await directory.exists())
           directory = await getExternalStorageDirectory();
-        }
       } else if (Platform.isIOS) {
         directory = await getApplicationDocumentsDirectory();
       } else {
         directory = await getDownloadsDirectory();
       }
 
-      if (directory == null) {
+      if (directory == null)
         throw Exception('Could not access storage directory');
-      }
 
-      // 3️⃣ Determine file name
+      // 4️⃣ Determine file name
       final fileName =
           _getFileNameFromUrl(widget.fileUrl) ??
           '${widget.title}_${DateTime.now().millisecondsSinceEpoch}';
       final filePath = '${directory.path}/$fileName';
-
       debugPrint('Downloading to: $filePath');
 
-      // 4️⃣ Generate signed URL for Supabase - ✅ FIXED VERSION
+      // 5️⃣ Generate signed URL for Supabase
       final uri = Uri.parse(widget.fileUrl);
       final pathSegments = uri.pathSegments;
-
-      // Find the index of 'product-files' in the path
-      int bucketIndex = -1;
-      for (int i = 0; i < pathSegments.length; i++) {
-        if (pathSegments[i] == 'product-files') {
-          bucketIndex = i;
-          break;
-        }
-      }
-
+      final bucketIndex = pathSegments.indexOf('product-files');
       if (bucketIndex == -1 || bucketIndex >= pathSegments.length - 1) {
         throw Exception('Invalid product-files URL format');
       }
-
-      // Get everything AFTER 'product-files'
       final filePathInBucket = pathSegments.sublist(bucketIndex + 1).join('/');
-
-      debugPrint('🔍 File path in bucket: $filePathInBucket');
-
       final downloadUrl = await supabase.storage
           .from('product-files')
           .createSignedUrl(filePathInBucket, 3600);
 
-      if (downloadUrl.isEmpty) {
+      if (downloadUrl.isEmpty)
         throw Exception('Failed to generate download link');
-      }
 
-      debugPrint('🔍 Signed URL generated successfully');
-
-      // 5️⃣ Download using Dio
+      // 6️⃣ Download using Dio
       final dio = Dio();
       await dio.download(downloadUrl, filePath);
 
-      // 6️⃣ Open file with correct MIME type
+      // 7️⃣ Open file with correct MIME type
       final fileExtension = filePath.split('.').last.toLowerCase();
       String? mimeType;
-
-      if (fileExtension == 'pdf') {
-        mimeType = 'application/pdf';
-      } else if (fileExtension == 'jpg' || fileExtension == 'jpeg') {
+      if (fileExtension == 'pdf') mimeType = 'application/pdf';
+      if (fileExtension == 'jpg' || fileExtension == 'jpeg')
         mimeType = 'image/jpeg';
-      } else if (fileExtension == 'png') {
-        mimeType = 'image/png';
-      }
+      if (fileExtension == 'png') mimeType = 'image/png';
 
       await OpenFile.open(filePath, type: mimeType);
 
-      // 7️⃣ Record download in Supabase
-      final existing = await supabase
-          .from('product_downloads')
+      // 8️⃣ Record download in Supabase (optional: link to purchase)
+      final lastPurchase = await supabase
+          .from('purchases')
           .select()
           .eq('user_id', user.id)
           .eq('product_id', widget.productId)
+          .eq('status', 'paid')
+          .order('created_at', ascending: false)
+          .limit(1)
           .maybeSingle();
 
-      if (existing == null) {
-        await supabase.from('product_downloads').insert({
-          'user_id': user.id,
-          'product_id': widget.productId,
+      await supabase.from('product_downloads').insert({
+        'user_id': user.id,
+        'product_id': widget.productId,
+        'purchase_id': lastPurchase != null ? lastPurchase['id'] : null,
+      });
+
+      // 9️⃣ Interactive popup after download
+      if (!mounted) return;
+
+      final gotFile = await showDialog<bool>(
+        context: context,
+        builder: (_) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF58C1D1), Color(0xFF7DE0E6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 60,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Download Complete!',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Did you successfully get your digital product?',
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF58C1D1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('No'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF58C1D1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Yes'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (gotFile == true) {
+        setState(() {
+          _hasPurchased = false; // Reset button to Buy Now
         });
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Downloaded to ${directory.path}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Downloaded to ${directory.path}'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } catch (e) {
       debugPrint('Download error: $e');
       if (mounted) {
@@ -1086,15 +1207,15 @@ class _ViewProductPageState extends State<ViewProductPage> {
                             ),
                           )
                         : ElevatedButton.icon(
-                            onPressed: _hasPurchased
-                                ? _handleDownload
+                            onPressed: _canDownload
+                                ? _handleDownloadNow
                                 : _handleBuyNow,
                             icon: Icon(
-                              _hasPurchased ? Icons.lock_open : Icons.lock,
+                              _canDownload ? Icons.lock_open : Icons.lock,
                               color: Colors.white,
                             ),
                             label: Text(
-                              _hasPurchased ? 'Download Now' : 'Buy Now',
+                              _canDownload ? 'Download Now' : 'Buy Now',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -1110,7 +1231,6 @@ class _ViewProductPageState extends State<ViewProductPage> {
                             ),
                           ),
                   ),
-
                   const SizedBox(height: 20),
 
                   // ⭐ REVIEWS SECTION ⭐
@@ -1536,6 +1656,74 @@ class _ViewProductPageState extends State<ViewProductPage> {
         );
       }
     }
+  }
+}
+
+class GotFileDialog extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF58C1D1), Color(0xFF7DE0E6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.download_done, size: 50, color: Colors.white),
+            const SizedBox(height: 16),
+            const Text(
+              'Did you get your digital product?',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text(
+                    'Yes',
+                    style: TextStyle(color: Color(0xFF58C1D1)),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text(
+                    'No',
+                    style: TextStyle(color: Color(0xFF58C1D1)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
