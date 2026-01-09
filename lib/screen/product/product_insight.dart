@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:math';
+import 'package:dropdown_button2/dropdown_button2.dart';
 
 class ProductInsightScreen extends StatefulWidget {
   final String productId;
@@ -23,6 +24,7 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
   final supabase = Supabase.instance.client;
 
   bool loading = true;
+  bool _isDropdownOpen = false;
   bool error = false;
 
   // Totals
@@ -44,6 +46,8 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
   List<Map<String, dynamic>> recentBuyers = [];
 
   List<Map<String, dynamic>> productReviews = [];
+
+  int _reviewStarFilter = 0; // 0 = All, 1-5 = filter by stars
 
   @override
   void initState() {
@@ -256,13 +260,74 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
   }
 
   Widget _buildReviewsTab() {
-    final reviewsToDisplay = productReviews.take(_reviewsToShow).toList();
-    final hasMore = productReviews.length > _reviewsToShow;
+    // Filter reviews based on star rating
+    final filteredReviews = productReviews
+        .where(
+          (r) =>
+              _reviewStarFilter == 0 || (r['rating'] ?? 0) == _reviewStarFilter,
+        )
+        .toList();
+    final reviewsToDisplay = filteredReviews.take(_reviewsToShow).toList();
+    final hasMore = filteredReviews.length > _reviewsToShow;
 
     return Column(
       children: [
+        // ⭐ Filter Dropdown
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Text(
+                'Filter:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton2<int>(
+                    isExpanded: true,
+                    value: _reviewStarFilter,
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('All Stars')),
+                      DropdownMenuItem(value: 5, child: Text('5 Stars')),
+                      DropdownMenuItem(value: 4, child: Text('4 Stars')),
+                      DropdownMenuItem(value: 3, child: Text('3 Stars')),
+                      DropdownMenuItem(value: 2, child: Text('2 Stars')),
+                      DropdownMenuItem(value: 1, child: Text('1 Star')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _reviewStarFilter = value!;
+                        _reviewsToShow =
+                            5; // Reset visible reviews when filter changes
+                      });
+                    },
+                    buttonStyleData: ButtonStyleData(
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FA),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    dropdownStyleData: DropdownStyleData(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 6,
+                      offset: const Offset(0, 8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ⭐ Reviews List
         Expanded(
-          child: productReviews.isEmpty
+          child: filteredReviews.isEmpty
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -274,7 +339,7 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'No reviews yet',
+                        'No reviews for this filter',
                         style: TextStyle(color: Colors.grey.shade500),
                       ),
                     ],
@@ -290,6 +355,8 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
                   },
                 ),
         ),
+
+        // ⭐ Load More Button
         if (hasMore)
           Padding(
             padding: const EdgeInsets.all(16),
@@ -671,14 +738,13 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
               weeklySales.map((e) => e.toDouble()).toList(),
             ),
             color: const Color(0xFF58C1D1),
-            isEmpty: weeklySales.every((v) => v == 0),
+            prefix: null,
           ),
           const SizedBox(height: 16),
           _buildChartCard(
             title: 'Earnings',
             spots: _generateSpots(weeklyEarnings),
             color: const Color(0xFF4CAF50),
-            isEmpty: weeklyEarnings.every((v) => v == 0.0),
             prefix: 'RM',
           ),
         ],
@@ -690,9 +756,14 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
     required String title,
     required List<FlSpot> spots,
     required Color color,
-    required bool isEmpty,
     String? prefix,
   }) {
+    // Determine max Y so chart is visible even with all zeros
+    final maxY = (max(
+      5,
+      spots.map((s) => s.y).fold(0.0, max) * 1.3,
+    )).toDouble();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -707,33 +778,14 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
         const SizedBox(height: 12),
         SizedBox(
           height: 180,
-          child: isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.show_chart,
-                        size: 48,
-                        color: Colors.grey.shade300,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No $title in the last 7 days',
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : ModernLineChart(
-                  spots: spots,
-                  labels: weekLabels,
-                  color: color,
-                  prefix: prefix,
-                ),
+          child: ModernLineChart(
+            spots: spots,
+            labels: weekLabels,
+            color: color,
+            prefix: prefix,
+            minY: 0,
+            maxY: maxY,
+          ),
         ),
       ],
     );
@@ -754,13 +806,71 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
               labelColor: const Color(0xFF58C1D1),
               unselectedLabelColor: Colors.grey,
               indicatorColor: const Color(0xFF58C1D1),
-              tabs: const [
-                Tab(text: 'Recent Buyers'),
-                Tab(text: 'Customer Reviews'),
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Recent Buyers'),
+                      const SizedBox(width: 6),
+                      if (recentBuyers.isNotEmpty)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF58C1D1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_filterBuyersByDate().length}', // dynamic count
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Customer Reviews'),
+                      const SizedBox(width: 6),
+                      if (productReviews.isNotEmpty)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF58C1D1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${productReviews.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
             SizedBox(
-              height: 500, // Adjust based on your needs
+              height: 500, // Adjust height as needed
               child: TabBarView(
                 children: [_buildBuyersTab(), _buildReviewsTab()],
               ),
@@ -776,7 +886,6 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
 
     return Column(
       children: [
-        // Date filter dropdown
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -787,16 +896,10 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7FA),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButton<String>(
-                    value: _buyerDateFilter,
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton2<String>(
                     isExpanded: true,
-                    underline: const SizedBox(),
+                    value: _buyerDateFilter,
                     items: const [
                       DropdownMenuItem(value: 'today', child: Text('Today')),
                       DropdownMenuItem(
@@ -818,13 +921,29 @@ class _ProductInsightScreenState extends State<ProductInsightScreen> {
                         _buyerDateFilter = value!;
                       });
                     },
+                    buttonStyleData: ButtonStyleData(
+                      height: 40,
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FA),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    dropdownStyleData: DropdownStyleData(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      elevation: 6,
+                      offset: const Offset(0, 8),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        // Buyers list
         Expanded(
           child: filteredBuyers.isEmpty
               ? Center(
@@ -1059,6 +1178,8 @@ class ModernLineChart extends StatelessWidget {
   final List<String> labels;
   final Color color;
   final String? prefix;
+  final double minY;
+  final double maxY;
 
   const ModernLineChart({
     super.key,
@@ -1066,22 +1187,24 @@ class ModernLineChart extends StatelessWidget {
     required this.labels,
     required this.color,
     this.prefix,
+    this.minY = 0,
+    this.maxY = 10,
   });
 
   @override
   Widget build(BuildContext context) {
-    final maxY = (spots.map((s) => s.y).fold(0.0, (a, b) => max(a, b)) * 1.3)
-        .clamp(1.0, double.infinity);
-
     return LineChart(
       LineChartData(
+        minX: 0,
+        maxX: max(0, (spots.length - 1).toDouble()),
+        minY: minY,
+        maxY: maxY,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxY / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.grey.shade200, strokeWidth: 1);
-          },
+          horizontalInterval: max(1, maxY / 4),
+          getDrawingHorizontalLine: (value) =>
+              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
@@ -1091,9 +1214,8 @@ class ModernLineChart extends StatelessWidget {
               interval: 1,
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
-                if (idx < 0 || idx >= labels.length) {
+                if (idx < 0 || idx >= labels.length)
                   return const SizedBox.shrink();
-                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
@@ -1114,9 +1236,6 @@ class ModernLineChart extends StatelessWidget {
               reservedSize: prefix != null ? 50 : 35,
               interval: max(1, maxY / 4),
               getTitlesWidget: (value, meta) {
-                if (value == 0) {
-                  return const SizedBox.shrink();
-                }
                 return Text(
                   prefix != null
                       ? '$prefix${value.toInt()}'
@@ -1134,27 +1253,13 @@ class ModernLineChart extends StatelessWidget {
           ),
         ),
         borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: max(0, (spots.length - 1).toDouble()),
-        minY: 0,
-        maxY: maxY,
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.35,
             barWidth: 3,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 4,
-                  color: Colors.white,
-                  strokeWidth: 2,
-                  strokeColor: color,
-                );
-              },
-            ),
+            dotData: FlDotData(show: true),
             color: color,
             belowBarData: BarAreaData(
               show: true,
@@ -1166,27 +1271,6 @@ class ModernLineChart extends StatelessWidget {
             ),
           ),
         ],
-        lineTouchData: LineTouchData(
-          enabled: true,
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (touchedSpot) => color.withOpacity(0.8),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final value = prefix != null
-                    ? '$prefix${spot.y.toStringAsFixed(0)}'
-                    : spot.y.toStringAsFixed(0);
-                return LineTooltipItem(
-                  value,
-                  const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                );
-              }).toList();
-            },
-          ),
-        ),
       ),
     );
   }
