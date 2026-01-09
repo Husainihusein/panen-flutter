@@ -53,6 +53,7 @@ dependencies:
   intl: ^0.20.2
   app_links: ^6.4.1
   flutter_dotenv: ^6.0.0
+  dropdown_button2: ^2.3.9
 
 dev_dependencies:
   flutter_test:
