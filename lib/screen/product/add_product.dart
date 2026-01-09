@@ -31,6 +31,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final ImagePicker picker = ImagePicker();
   bool useExternalLink = false;
 
+  bool isLicensed = false;
+
   String _getMimeType(String fileName) {
     final extension = fileName.split('.').last.toLowerCase();
 
@@ -568,14 +570,42 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
             const SizedBox(height: 24),
 
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: isLicensed,
+                  onChanged: (val) => setState(() => isLicensed = val ?? false),
+                ),
+                Expanded(
+                  child: RichText(
+                    text: const TextSpan(
+                      style: TextStyle(color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text:
+                              "I confirm that this product is my original work and I have full rights to upload it. "
+                              "I understand that I am fully responsible for any copyright or licensing issues. "
+                              "The app/company is not liable for any disputes arising from this product.",
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             // Submit
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: addProduct,
+                onPressed: isLicensed ? addProduct : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF58C1D1),
+                  backgroundColor: isLicensed
+                      ? const Color(0xFF58C1D1)
+                      : Colors.grey,
                 ),
                 child: const Text(
                   "Add Product",
