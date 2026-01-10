@@ -161,17 +161,22 @@ class _ViewProductPageState extends State<ViewProductPage> {
           .eq('user_id', userId)
           .eq('product_id', widget.productId)
           .eq('status', 'paid')
-          .maybeSingle();
+          .limit(1);
 
-      setState(() {
-        _hasPurchased = response != null;
-        _currentPurchaseId = response?['id']; // store purchase id
-      });
-    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error checking purchase: $e')));
+        setState(() {
+          _hasPurchased =
+              response.isNotEmpty; // true if user has at least 1 paid purchase
+          _currentPurchaseId = response.isNotEmpty ? response[0]['id'] : null;
+          _isCheckingPurchase = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking purchase status: $e');
+      if (mounted) {
+        setState(() {
+          _isCheckingPurchase = false;
+        });
       }
     }
   }
@@ -899,24 +904,50 @@ class _ViewProductPageState extends State<ViewProductPage> {
   ) async {
     final supabase = Supabase.instance.client;
 
-    final response = await supabase
-        .from('chats')
-        .select()
-        .or(
-          'and(user1_id.eq.$currentUserId,user2_id.eq.$otherUserId),'
-          'and(user1_id.eq.$otherUserId,user2_id.eq.$currentUserId)',
-        )
-        .maybeSingle();
+    try {
+      // 1️⃣ Try to find an existing chat between the two users
+      final existingChat = await supabase
+          .from('chats')
+          .select()
+          .or('user1_id.eq.$currentUserId,user2_id.eq.$currentUserId')
+          .eq('user1_id', otherUserId)
+          .or('user2_id.eq.$currentUserId,user1_id.eq.$currentUserId')
+          .single()
+          .maybeSingle(); // maybeSingle avoids crash if no row
 
-    if (response != null) return response;
+      Map<String, dynamic> chat;
 
-    final insertResponse = await supabase
-        .from('chats')
-        .insert({'user1_id': currentUserId, 'user2_id': otherUserId})
-        .select()
-        .single();
+      if (existingChat != null) {
+        chat = existingChat;
+      } else {
+        // Create a new chat if it doesn't exist
+        final newChat = await supabase
+            .from('chats')
+            .insert({
+              'user1_id': currentUserId,
+              'user2_id': otherUserId,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .select()
+            .single();
 
-    return insertResponse;
+        chat = newChat;
+      }
+
+      //  Fetch the other user's photo_url
+      final otherUserResponse = await supabase
+          .from('users')
+          .select('photo_url')
+          .eq('id', otherUserId)
+          .single();
+
+      chat['otherUserPhotoUrl'] = otherUserResponse['photo_url'];
+
+      return chat;
+    } catch (e) {
+      debugPrint('Error getting or creating chat: $e');
+      return null;
+    }
   }
 
   @override
@@ -1041,6 +1072,7 @@ class _ViewProductPageState extends State<ViewProductPage> {
                                 builder: (_) => ChatDetailScreen(
                                   chatId: chat['id'],
                                   otherUserName: widget.creator,
+                                  otherUserPhotoUrl: chat['otherUserPhotoUrl'],
                                 ),
                               ),
                             );
