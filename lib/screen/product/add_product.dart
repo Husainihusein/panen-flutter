@@ -551,17 +551,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         ],
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.attach_file, color: Colors.blue),
                           const SizedBox(width: 10),
-                          Text(
-                            uploadedFile == null
-                                ? "Choose File"
-                                : uploadedFile!.path.split('/').last,
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Text(
+                              uploadedFile == null
+                                  ? "Choose File"
+                                  : uploadedFile!.path.split('/').last,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],

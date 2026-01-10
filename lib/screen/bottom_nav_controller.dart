@@ -4,7 +4,6 @@ import 'home_screen.dart';
 import 'profile/profile_page.dart';
 import 'content_creator/creator_registration.dart';
 import 'product/product_dashboard.dart';
-import 'notification_screen.dart';
 import 'chat/chat_list.dart';
 import 'library.dart';
 
