@@ -8,6 +8,7 @@ import 'edit_profile.dart';
 import '../product/view_product.dart';
 import '../home_screen.dart';
 import '../bottom_nav_controller.dart';
+import '../chat/chat_detail.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -97,6 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           .eq('owner_id', uid)
           .eq('status', 'approved')
           .eq('is_deleted', false)
+          .eq('is_active', true)
           .order('created_at', ascending: false);
 
       setState(() {
@@ -134,18 +136,52 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Future<void> openWhatsApp() async {
-    if (phoneNumber.isEmpty) return;
-    String number = phoneNumber.replaceAll(RegExp(r'\D'), '');
-    final url = Uri.parse("https://wa.me/$number");
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open WhatsApp')),
-        );
+  Future<Map<String, dynamic>?> _getOrCreateChat(
+    String currentUserId,
+    String otherUserId,
+  ) async {
+    final supabase = Supabase.instance.client;
+
+    try {
+      final existingChat = await supabase
+          .from('chats')
+          .select()
+          .or('user1_id.eq.$currentUserId,user2_id.eq.$currentUserId')
+          .eq('user1_id', otherUserId)
+          .or('user2_id.eq.$currentUserId,user1_id.eq.$otherUserId')
+          .single()
+          .maybeSingle();
+
+      Map<String, dynamic> chat;
+
+      if (existingChat != null) {
+        chat = existingChat;
+      } else {
+        final newChat = await supabase
+            .from('chats')
+            .insert({
+              'user1_id': currentUserId,
+              'user2_id': otherUserId,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .select()
+            .single();
+
+        chat = newChat;
       }
+
+      final otherUserResponse = await supabase
+          .from('users')
+          .select('photo_url')
+          .eq('id', otherUserId)
+          .single();
+
+      chat['otherUserPhotoUrl'] = otherUserResponse['photo_url'];
+
+      return chat;
+    } catch (e) {
+      debugPrint('Error getting or creating chat: $e');
+      return null;
     }
   }
 
@@ -403,7 +439,45 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ? _buildActionButton(
                           icon: LucideIcons.messageCircle,
                           label: "Message",
-                          onPressed: openWhatsApp,
+                          onPressed: () async {
+                            final currentUserId = supabase.auth.currentUser?.id;
+                            final profileUserId = widget.userId;
+
+                            if (currentUserId == null ||
+                                profileUserId == null ||
+                                currentUserId == profileUserId) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Cannot start chat'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            final chat = await _getOrCreateChat(
+                              currentUserId,
+                              profileUserId,
+                            );
+                            if (chat != null && mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatDetailScreen(
+                                    chatId: chat['id'],
+                                    otherUserName: username,
+                                    otherUserPhotoUrl:
+                                        chat['otherUserPhotoUrl'],
+                                  ),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Could not open chat'),
+                                ),
+                              );
+                            }
+                          },
                         )
                       : _buildActionButton(
                           icon: LucideIcons.edit3,
