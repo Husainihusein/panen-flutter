@@ -754,10 +754,61 @@ class _ViewProductPageState extends State<ViewProductPage> {
       // 7️⃣ Open file with correct MIME type
       final fileExtension = filePath.split('.').last.toLowerCase();
       String? mimeType;
-      if (fileExtension == 'pdf') mimeType = 'application/pdf';
-      if (fileExtension == 'jpg' || fileExtension == 'jpeg')
-        mimeType = 'image/jpeg';
-      if (fileExtension == 'png') mimeType = 'image/png';
+
+      switch (fileExtension) {
+        case 'pdf':
+          mimeType = 'application/pdf';
+          break;
+
+        case 'jpg':
+        case 'jpeg':
+          mimeType = 'image/jpeg';
+          break;
+
+        case 'png':
+          mimeType = 'image/png';
+          break;
+
+        // 📄 Word
+        case 'doc':
+          mimeType = 'application/msword';
+          break;
+        case 'docx':
+          mimeType =
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          break;
+
+        // 📊 Excel
+        case 'xls':
+          mimeType = 'application/vnd.ms-excel';
+          break;
+        case 'xlsx':
+          mimeType =
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          break;
+
+        // 📽 PowerPoint
+        case 'ppt':
+          mimeType = 'application/vnd.ms-powerpoint';
+          break;
+        case 'pptx':
+          mimeType =
+              'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+          break;
+
+        // 🎵 Audio
+        case 'mp3':
+          mimeType = 'audio/mpeg';
+          break;
+
+        // 🎬 Video
+        case 'mp4':
+          mimeType = 'video/mp4';
+          break;
+
+        default:
+          mimeType = 'application/octet-stream'; // fallback
+      }
 
       await OpenFile.open(filePath, type: mimeType);
 
