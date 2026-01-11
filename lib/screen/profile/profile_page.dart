@@ -212,492 +212,506 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Header with decorative background
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Decorative header background
-                    Container(
-                      height: 140,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF58C1D1).withOpacity(0.15),
-                            const Color(0xFF58C1D1).withOpacity(0.05),
-                          ],
-                        ),
-                      ),
-                      child: Stack(
-                        children: [
-                          // Decorative circles
-                          Positioned(
-                            top: -30,
-                            right: -30,
-                            child: Container(
-                              width: 120,
-                              height: 120,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(0xFF58C1D1).withOpacity(0.1),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 40,
-                            left: -20,
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(
-                                  0xFF58C1D1,
-                                ).withOpacity(0.08),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Header buttons
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (!isCurrentUser)
-                            IconButton(
-                              icon: const Icon(LucideIcons.arrowLeft, size: 22),
-                              onPressed: () => Navigator.pop(context),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                padding: const EdgeInsets.all(10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox(width: 48),
-                          const Spacer(),
-                          if (isCurrentUser)
-                            PopupMenuButton<String>(
-                              icon: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  LucideIcons.moreVertical,
-                                  size: 22,
-                                ),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              onSelected: (value) {
-                                if (value == "logout") {
-                                  supabase.auth.signOut();
-                                  Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const LandingPageScreen(),
-                                    ),
-                                    (route) => false,
-                                  );
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: "logout",
-                                  child: Text("Logout"),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    // Profile Picture (positioned to overlap)
-                    Positioned(
-                      bottom: -50,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: ScaleTransition(
-                          scale: _profileScaleAnim,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF58C1D1,
-                                  ).withOpacity(0.3),
-                                  blurRadius: 25,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF58C1D1,
-                                  ).withOpacity(0.3),
-                                  width: 3,
-                                ),
-                              ),
-                              child: CircleAvatar(
-                                radius: 50,
-                                backgroundColor: Colors.grey.shade200,
-                                backgroundImage:
-                                    (photoUrl != null && photoUrl!.isNotEmpty)
-                                    ? NetworkImage(photoUrl!)
-                                    : null,
-                                child: (photoUrl == null || photoUrl!.isEmpty)
-                                    ? const Icon(
-                                        LucideIcons.user,
-                                        size: 45,
-                                        color: Colors.grey,
-                                      )
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 60),
-
-                // Name and Username
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D3436),
-                    letterSpacing: -0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF58C1D1).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "@$username",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF58C1D1),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Bio
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    bio,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Action Button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: !isCurrentUser
-                      ? _buildActionButton(
-                          icon: LucideIcons.messageCircle,
-                          label: "Message",
-                          onPressed: () async {
-                            final currentUserId = supabase.auth.currentUser?.id;
-                            final profileUserId = widget.userId;
-
-                            if (currentUserId == null ||
-                                profileUserId == null ||
-                                currentUserId == profileUserId) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Cannot start chat'),
-                                ),
-                              );
-                              return;
-                            }
-
-                            final chat = await _getOrCreateChat(
-                              currentUserId,
-                              profileUserId,
-                            );
-                            if (chat != null && mounted) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatDetailScreen(
-                                    chatId: chat['id'],
-                                    otherUserName: username,
-                                    otherUserPhotoUrl:
-                                        chat['otherUserPhotoUrl'],
-                                  ),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Could not open chat'),
-                                ),
-                              );
-                            }
-                          },
-                        )
-                      : _buildActionButton(
-                          icon: LucideIcons.edit3,
-                          label: "Edit Profile",
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const EditProfileScreen(),
-                              ),
-                            );
-                            fetchUserInfo();
-                          },
-                        ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Content Sections
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
+          child: RefreshIndicator(
+            onRefresh: fetchUserInfo,
+            color: const Color(0xFF58C1D1),
+            backgroundColor: Colors.white,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  // Header with decorative background
+                  Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      // Skills Section - Collapsible
-                      if (skills.isNotEmpty)
-                        _buildCollapsibleSection(
-                          title: "Skills",
-                          icon: LucideIcons.award,
-                          count: skills.length,
-                          isExpanded: isSkillsExpanded,
-                          onToggle: () => setState(
-                            () => isSkillsExpanded = !isSkillsExpanded,
+                      // Decorative header background
+                      Container(
+                        height: 140,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF58C1D1).withOpacity(0.15),
+                              const Color(0xFF58C1D1).withOpacity(0.05),
+                            ],
                           ),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: skills.map((skill) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
+                        ),
+                        child: Stack(
+                          children: [
+                            // Decorative circles
+                            Positioned(
+                              top: -30,
+                              right: -30,
+                              child: Container(
+                                width: 120,
+                                height: 120,
                                 decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
                                   color: const Color(
                                     0xFF58C1D1,
                                   ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 40,
+                              left: -20,
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(
+                                    0xFF58C1D1,
+                                  ).withOpacity(0.08),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Header buttons
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (!isCurrentUser)
+                              IconButton(
+                                icon: const Icon(
+                                  LucideIcons.arrowLeft,
+                                  size: 22,
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  padding: const EdgeInsets.all(10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 48),
+                            const Spacer(),
+                            if (isCurrentUser)
+                              PopupMenuButton<String>(
+                                icon: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.moreVertical,
+                                    size: 22,
+                                  ),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                onSelected: (value) {
+                                  if (value == "logout") {
+                                    supabase.auth.signOut();
+                                    Navigator.pushAndRemoveUntil(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const LandingPageScreen(),
+                                      ),
+                                      (route) => false,
+                                    );
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: "logout",
+                                    child: Text("Logout"),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Profile Picture (positioned to overlap)
+                      Positioned(
+                        bottom: -50,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: ScaleTransition(
+                            scale: _profileScaleAnim,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF58C1D1,
+                                    ).withOpacity(0.3),
+                                    blurRadius: 25,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
                                   border: Border.all(
                                     color: const Color(
                                       0xFF58C1D1,
                                     ).withOpacity(0.3),
-                                    width: 1,
+                                    width: 3,
                                   ),
                                 ),
-                                child: Text(
-                                  skill,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF58C1D1),
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                child: CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.grey.shade200,
+                                  backgroundImage:
+                                      (photoUrl != null && photoUrl!.isNotEmpty)
+                                      ? NetworkImage(photoUrl!)
+                                      : null,
+                                  child: (photoUrl == null || photoUrl!.isEmpty)
+                                      ? const Icon(
+                                          LucideIcons.user,
+                                          size: 45,
+                                          color: Colors.grey,
+                                        )
+                                      : null,
                                 ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-
-                      // Links Section - Collapsible
-                      if (links.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _buildCollapsibleSection(
-                          title: "Contact Me",
-                          icon: LucideIcons.link2,
-                          count: links.length,
-                          isExpanded: isLinksExpanded,
-                          onToggle: () => setState(
-                            () => isLinksExpanded = !isLinksExpanded,
-                          ),
-                          child: Column(
-                            children: links.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final link = entry.value;
-                              final url = link['url'] ?? '';
-                              final label = link['label'] ?? url;
-
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: index < links.length - 1 ? 8 : 0,
-                                ),
-                                child: InkWell(
-                                  onTap: () async {
-                                    final uri = Uri.tryParse(url);
-                                    if (uri != null &&
-                                        await canLaunchUrl(uri)) {
-                                      await launchUrl(
-                                        uri,
-                                        mode: LaunchMode.externalApplication,
-                                      );
-                                    }
-                                  },
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: Colors.grey.shade200,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: const Color(
-                                              0xFF58C1D1,
-                                            ).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            LucideIcons.link,
-                                            color: Color(0xFF58C1D1),
-                                            size: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                label,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF2D3436),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                url,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Icon(
-                                          LucideIcons.externalLink,
-                                          size: 14,
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-
-                      // Products Section - Carousel
-                      if (products.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _buildProductCarousel(),
-                      ] else if (isCurrentUser) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.shade200,
-                              width: 1,
+                              ),
                             ),
                           ),
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  LucideIcons.package,
-                                  size: 28,
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No products yet',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
-                ),
 
-                const SizedBox(height: 32),
-              ],
+                  const SizedBox(height: 60),
+
+                  // Name and Username
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D3436),
+                      letterSpacing: -0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF58C1D1).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      "@$username",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF58C1D1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Bio
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      bio,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Action Button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: !isCurrentUser
+                        ? _buildActionButton(
+                            icon: LucideIcons.messageCircle,
+                            label: "Message",
+                            onPressed: () async {
+                              final currentUserId =
+                                  supabase.auth.currentUser?.id;
+                              final profileUserId = widget.userId;
+
+                              if (currentUserId == null ||
+                                  profileUserId == null ||
+                                  currentUserId == profileUserId) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Cannot start chat'),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              final chat = await _getOrCreateChat(
+                                currentUserId,
+                                profileUserId,
+                              );
+                              if (chat != null && mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatDetailScreen(
+                                      chatId: chat['id'],
+                                      otherUserName: username,
+                                      otherUserPhotoUrl:
+                                          chat['otherUserPhotoUrl'],
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Could not open chat'),
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                        : _buildActionButton(
+                            icon: LucideIcons.edit3,
+                            label: "Edit Profile",
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen(),
+                                ),
+                              );
+                              fetchUserInfo();
+                            },
+                          ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Content Sections
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        // Skills Section - Collapsible
+                        if (skills.isNotEmpty)
+                          _buildCollapsibleSection(
+                            title: "Skills",
+                            icon: LucideIcons.award,
+                            count: skills.length,
+                            isExpanded: isSkillsExpanded,
+                            onToggle: () => setState(
+                              () => isSkillsExpanded = !isSkillsExpanded,
+                            ),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: skills.map((skill) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF58C1D1,
+                                    ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF58C1D1,
+                                      ).withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    skill,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF58C1D1),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+
+                        // Links Section - Collapsible
+                        if (links.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _buildCollapsibleSection(
+                            title: "Contact Me",
+                            icon: LucideIcons.link2,
+                            count: links.length,
+                            isExpanded: isLinksExpanded,
+                            onToggle: () => setState(
+                              () => isLinksExpanded = !isLinksExpanded,
+                            ),
+                            child: Column(
+                              children: links.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final link = entry.value;
+                                final url = link['url'] ?? '';
+                                final label = link['label'] ?? url;
+
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: index < links.length - 1 ? 8 : 0,
+                                  ),
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final uri = Uri.tryParse(url);
+                                      if (uri != null &&
+                                          await canLaunchUrl(uri)) {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: Colors.grey.shade200,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFF58C1D1,
+                                              ).withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: const Icon(
+                                              LucideIcons.link,
+                                              color: Color(0xFF58C1D1),
+                                              size: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  label,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Color(0xFF2D3436),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  url,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            LucideIcons.externalLink,
+                                            size: 14,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+
+                        // Products Section - Carousel
+                        if (products.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _buildProductCarousel(),
+                        ] else if (isCurrentUser) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.shade200,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    LucideIcons.package,
+                                    size: 28,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No products yet',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           ),
         ),

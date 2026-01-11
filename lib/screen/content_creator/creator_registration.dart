@@ -77,6 +77,10 @@ class _CreatorRegistrationScreenState extends State<CreatorRegistrationScreen>
     _loadCreatorApplication();
   }
 
+  Future<void> _onRefresh() async {
+    await _loadCreatorApplication();
+  }
+
   Future<void> _loadCreatorApplication() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
@@ -144,188 +148,191 @@ class _CreatorRegistrationScreenState extends State<CreatorRegistrationScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (_isSubmitted) {
-      return WillPopScope(
-        onWillPop: () async {
-          // Just go back to BottomNavController (home)
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const BottomNavController(initialIndex: 0),
-            ),
-          );
-          return false; // Prevent default back
-        },
-        child: Scaffold(
-          backgroundColor: Colors.grey[50],
-          body: SafeArea(
-            child: Center(
-              child: TweenAnimationBuilder(
-                duration: const Duration(milliseconds: 600),
-                tween: Tween<double>(begin: 0, end: 1),
-                builder: (context, double value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: Opacity(opacity: value, child: child),
-                  );
-                },
+    return WillPopScope(
+      onWillPop: () async {
+        // Back button always goes to home
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const BottomNavController(initialIndex: 0),
+          ),
+        );
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Header (always present)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF58C1D1), Color(0xFF45A5B5)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF58C1D1).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
                     children: [
-                      // ✅ Your same submission success UI here
                       Container(
-                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withOpacity(0.2),
-                              blurRadius: 20,
-                              spreadRadius: 5,
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const BottomNavController(initialIndex: 0),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              "Become a Creator",
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              "Start your journey today",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white70,
+                              ),
                             ),
                           ],
-                        ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 80,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      const Text(
-                        'Application Submitted!',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const BottomNavController(initialIndex: 0),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('Back to Home'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF58C1D1),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      );
-    }
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF58C1D1), Color(0xFF45A5B5)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0xFF58C1D1).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: Icon(Icons.arrow_back, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
+              // Body
+              Expanded(
+                child: _isSubmitted
+                    ? Center(
+                        child: TweenAnimationBuilder(
+                          duration: const Duration(milliseconds: 600),
+                          tween: Tween<double>(begin: 0, end: 1),
+                          builder: (context, double value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Opacity(opacity: value, child: child),
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.green.withOpacity(0.2),
+                                        blurRadius: 20,
+                                        spreadRadius: 5,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                    size: 80,
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                const Text(
+                                  'Application Submitted!',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2C3E50),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const BottomNavController(
+                                              initialIndex: 0,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.arrow_back),
+                                  label: const Text('Back to Home'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF58C1D1),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Become a Creator",
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
+                      )
+                    : _fadeAnimation == null
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        child: Form(key: _formKey, child: _buildFormContent()),
+                      )
+                    : FadeTransition(
+                        opacity: _fadeAnimation!,
+                        child: SlideTransition(
+                          position: _slideAnimation!,
+                          child: RefreshIndicator(
+                            onRefresh: _onRefresh,
+                            color: const Color(0xFF58C1D1),
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.all(20),
+                              child: Form(
+                                key: _formKey,
+                                child: _buildFormContent(),
                               ),
-                              SizedBox(height: 4),
-                              Text(
-                                "Start your journey today",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Form
-            Expanded(
-              child: _fadeAnimation == null
-                  ? SingleChildScrollView(
-                      padding: EdgeInsets.all(20),
-                      child: Form(key: _formKey, child: _buildFormContent()),
-                    )
-                  : FadeTransition(
-                      opacity: _fadeAnimation!,
-                      child: SlideTransition(
-                        position: _slideAnimation!,
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.all(20),
-                          child: Form(
-                            key: _formKey,
-                            child: _buildFormContent(),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

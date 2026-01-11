@@ -35,8 +35,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.initState();
     userId = supabase.auth.currentUser?.id;
     _fetchCurrentUserPhoto();
-    _fetchMessages();
-    _setupRealtime();
+
+    Future.microtask(() async {
+      await _fetchMessages();
+      _setupRealtime();
+    });
   }
 
   @override
@@ -45,6 +48,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _scrollController.dispose();
     _messagesChannel?.unsubscribe();
     super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    await _fetchMessages();
   }
 
   Future<void> _fetchCurrentUserPhoto() async {
@@ -72,6 +79,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           .select()
           .eq('chat_id', widget.chatId)
           .order('created_at', ascending: true);
+
+      if (!mounted) return;
 
       setState(() {
         messages = List<Map<String, dynamic>>.from(response);
@@ -398,160 +407,169 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           // Messages List
           Expanded(
-            child: isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF58C1D1)),
-                  )
-                : messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.messageCircle,
-                          size: 64,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No messages yet',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Send a message to start the conversation',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade500,
+            child: RefreshIndicator(
+              onRefresh: _onRefresh,
+              color: const Color(0xFF58C1D1),
+              child: isLoading
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 300),
+                        Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF58C1D1),
                           ),
                         ),
                       ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      final isMine = msg['sender_id'] == userId;
-                      final showAvatar =
-                          index == 0 ||
-                          messages[index - 1]['sender_id'] != msg['sender_id'];
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          mainAxisAlignment: isMine
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                    )
+                  : messages.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 200),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (!isMine) ...[
-                              showAvatar
-                                  ? CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Colors.grey.shade200,
-                                      backgroundImage:
-                                          (widget.otherUserPhotoUrl != null &&
-                                              widget
-                                                  .otherUserPhotoUrl!
-                                                  .isNotEmpty)
-                                          ? NetworkImage(
-                                              widget.otherUserPhotoUrl!,
-                                            )
-                                          : null,
-                                      child:
-                                          (widget.otherUserPhotoUrl == null ||
-                                              widget.otherUserPhotoUrl!.isEmpty)
-                                          ? Icon(
-                                              LucideIcons.user,
-                                              size: 16,
-                                              color: Colors.grey.shade600,
-                                            )
-                                          : null,
-                                    )
-                                  : const SizedBox(width: 32),
-                              const SizedBox(width: 8),
-                            ],
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: isMine
-                                      ? const LinearGradient(
-                                          colors: [
-                                            Color(0xFF58C1D1),
-                                            Color(0xFF7DE0E6),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : null,
-                                  color: isMine ? null : Colors.white,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(20),
-                                    topRight: const Radius.circular(20),
-                                    bottomLeft: Radius.circular(
-                                      isMine ? 20 : 4,
-                                    ),
-                                    bottomRight: Radius.circular(
-                                      isMine ? 4 : 20,
-                                    ),
+                            Icon(
+                              LucideIcons.messageCircle,
+                              size: 64,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No messages yet',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = messages[index];
+                        final isMine = msg['sender_id'] == userId;
+                        final showAvatar =
+                            index == 0 ||
+                            messages[index - 1]['sender_id'] !=
+                                msg['sender_id'];
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            mainAxisAlignment: isMine
+                                ? MainAxisAlignment.end
+                                : MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (!isMine) ...[
+                                showAvatar
+                                    ? CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.grey.shade200,
+                                        backgroundImage:
+                                            (widget.otherUserPhotoUrl != null &&
+                                                widget
+                                                    .otherUserPhotoUrl!
+                                                    .isNotEmpty)
+                                            ? NetworkImage(
+                                                widget.otherUserPhotoUrl!,
+                                              )
+                                            : null,
+                                        child:
+                                            (widget.otherUserPhotoUrl == null ||
+                                                widget
+                                                    .otherUserPhotoUrl!
+                                                    .isEmpty)
+                                            ? Icon(
+                                                LucideIcons.user,
+                                                size: 16,
+                                                color: Colors.grey.shade600,
+                                              )
+                                            : null,
+                                      )
+                                    : const SizedBox(width: 32),
+                                const SizedBox(width: 8),
+                              ],
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 2),
+                                  decoration: BoxDecoration(
+                                    gradient: isMine
+                                        ? const LinearGradient(
+                                            colors: [
+                                              Color(0xFF58C1D1),
+                                              Color(0xFF7DE0E6),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          )
+                                        : null,
+                                    color: isMine ? null : Colors.white,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(20),
+                                      topRight: const Radius.circular(20),
+                                      bottomLeft: Radius.circular(
+                                        isMine ? 20 : 4,
+                                      ),
+                                      bottomRight: Radius.circular(
+                                        isMine ? 4 : 20,
+                                      ),
                                     ),
-                                  ],
-                                ),
-                                child: Text(
-                                  msg['content'] ?? '',
-                                  style: TextStyle(
-                                    color: isMine
-                                        ? Colors.white
-                                        : Colors.black87,
-                                    fontSize: 15,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 5,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    msg['content'] ?? '',
+                                    style: TextStyle(
+                                      color: isMine
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            if (isMine) ...[
-                              const SizedBox(width: 8),
-                              showAvatar
-                                  ? CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Colors.grey.shade200,
-                                      backgroundImage:
-                                          (currentUserPhotoUrl != null &&
-                                              currentUserPhotoUrl!.isNotEmpty)
-                                          ? NetworkImage(currentUserPhotoUrl!)
-                                          : null,
-                                      child:
-                                          (currentUserPhotoUrl == null ||
-                                              currentUserPhotoUrl!.isEmpty)
-                                          ? Icon(
-                                              LucideIcons.user,
-                                              size: 16,
-                                              color: Colors.grey.shade600,
-                                            )
-                                          : null,
-                                    )
-                                  : const SizedBox(width: 32),
+                              if (isMine) ...[
+                                const SizedBox(width: 8),
+                                showAvatar
+                                    ? CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.grey.shade200,
+                                        backgroundImage:
+                                            (currentUserPhotoUrl != null &&
+                                                currentUserPhotoUrl!.isNotEmpty)
+                                            ? NetworkImage(currentUserPhotoUrl!)
+                                            : null,
+                                        child:
+                                            (currentUserPhotoUrl == null ||
+                                                currentUserPhotoUrl!.isEmpty)
+                                            ? Icon(
+                                                LucideIcons.user,
+                                                size: 16,
+                                                color: Colors.grey.shade600,
+                                              )
+                                            : null,
+                                      )
+                                    : const SizedBox(width: 32),
+                              ],
                             ],
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ),
 
           // Message Input

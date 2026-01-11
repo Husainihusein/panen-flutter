@@ -70,6 +70,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _onRefresh() async {
+    await loadData();
+  }
+
   Future<void> loadData() async {
     setState(() => loading = true);
 
@@ -486,40 +490,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               Expanded(
-                child: loading
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            TweenAnimationBuilder(
-                              duration: const Duration(milliseconds: 1000),
-                              tween: Tween<double>(begin: 0, end: 1),
-                              builder: (c, double v, ch) => Transform.scale(
-                                scale: 0.8 + (0.2 * v),
-                                child: Opacity(opacity: v, child: ch),
-                              ),
-                              child: const CircularProgressIndicator(
+                child: RefreshIndicator(
+                  onRefresh: _onRefresh,
+                  color: const Color(0xFF58C1D1),
+                  child: loading
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 300),
+                            Center(
+                              child: CircularProgressIndicator(
                                 color: Color(0xFF58C1D1),
-                                strokeWidth: 3,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Loading...',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
                               ),
                             ),
                           ],
+                        )
+                      : FadeTransition(
+                          opacity: _listAnimation,
+                          child: searchType == 'Products'
+                              ? _buildProductsList(refreshable: true)
+                              : _buildCreatorsList(refreshable: true),
                         ),
-                      )
-                    : FadeTransition(
-                        opacity: _listAnimation,
-                        child: searchType == 'Products'
-                            ? _buildProductsList()
-                            : _buildCreatorsList(),
-                      ),
+                ),
               ),
             ],
           ),
@@ -528,51 +520,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildProductsList() {
+  //Build Products List
+
+  Widget _buildProductsList({bool refreshable = false}) {
     if (filteredProducts.isEmpty)
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TweenAnimationBuilder(
-              duration: const Duration(milliseconds: 600),
-              tween: Tween<double>(begin: 0, end: 1),
-              builder: (c, double v, ch) => Transform.scale(
-                scale: v,
-                child: Opacity(opacity: v, child: ch),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.inventory_2_outlined,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
-              ),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 200),
+          Center(
+            child: Column(
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text('No products found'),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              'No products found',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try adjusting filters',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
 
     return ListView.builder(
+      physics: refreshable ? const AlwaysScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(20),
       itemCount: filteredProducts.length,
       itemBuilder: (context, index) {
@@ -823,46 +792,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildCreatorsList() {
+  Widget _buildCreatorsList({bool refreshable = false}) {
     if (filteredCreators.isEmpty)
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TweenAnimationBuilder(
-              duration: const Duration(milliseconds: 600),
-              tween: Tween<double>(begin: 0, end: 1),
-              builder: (c, double v, ch) => Transform.scale(
-                scale: v,
-                child: Opacity(opacity: v, child: ch),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.people_outline,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
-              ),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 200),
+          Center(
+            child: Column(
+              children: [
+                Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text('No creators found'),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              'No creators found',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
 
     return GridView.builder(
+      physics: refreshable ? const AlwaysScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -877,73 +826,65 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final name = c['name'] ?? '';
         final username = c['username'] ?? '';
 
-        return TweenAnimationBuilder(
-          duration: Duration(milliseconds: 300 + (index * 50)),
-          tween: Tween<double>(begin: 0, end: 1),
-          builder: (ctx, double v, ch) => Transform.scale(
-            scale: v,
-            child: Opacity(opacity: v, child: ch),
-          ),
-          child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(userId: c['id'] ?? ''),
-              ),
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProfileScreen(userId: c['id'] ?? ''),
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 45,
-                    backgroundColor: Colors.grey.shade100,
-                    backgroundImage: photoUrl.isNotEmpty
-                        ? NetworkImage(photoUrl)
-                        : null,
-                    child: photoUrl.isEmpty
-                        ? Icon(
-                            Icons.person,
-                            size: 45,
-                            color: Colors.grey.shade400,
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      name.isNotEmpty ? name : username,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: Colors.black87,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: Colors.grey.shade100,
+                  backgroundImage: photoUrl.isNotEmpty
+                      ? NetworkImage(photoUrl)
+                      : null,
+                  child: photoUrl.isEmpty
+                      ? Icon(
+                          Icons.person,
+                          size: 45,
+                          color: Colors.grey.shade400,
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    name.isNotEmpty ? name : username,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.black87,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '@$username',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '@$username',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         );

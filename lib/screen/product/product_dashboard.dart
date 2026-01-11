@@ -157,6 +157,10 @@ class _MyProductsScreenState extends State<MyProductsScreen>
     }
   }
 
+  Future<void> _refreshProducts() async {
+    await Future.wait([_fetchProducts(), _fetchWithdrawals()]);
+  }
+
   Future<void> _toggleActive(String productId, bool value) async {
     try {
       await supabase
@@ -684,326 +688,349 @@ class _MyProductsScreenState extends State<MyProductsScreen>
 
               // Products List
               Expanded(
-                child: products.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                child: RefreshIndicator(
+                  onRefresh: _refreshProducts,
+                  color: Color(0xFF58C1D1),
+                  backgroundColor: Colors.white,
+                  child: products.isEmpty
+                      ? ListView(
+                          // wrap empty state in ListView so RefreshIndicator works
+                          physics: AlwaysScrollableScrollPhysics(),
                           children: [
-                            Icon(
-                              Icons.inventory_2_outlined,
-                              size: 80,
-                              color: Colors.grey[300],
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              "No products yet",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              "Add your first product to get started",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[400],
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.5,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inventory_2_outlined,
+                                      size: 80,
+                                      color: Colors.grey[300],
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      "No products yet",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      "Add your first product to get started",
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: EdgeInsets.fromLTRB(16, 16, 16, 100),
-                        itemCount: products.length,
-                        itemBuilder: (context, index) {
-                          final product = products[index];
-                          final String title = product['title'];
-                          final double price = product['price'];
-                          final String thumbnail = product['thumbnail_url'];
-                          final String productId = product['id'];
-                          final String status = product['status'];
-                          final bool isActive = product['is_active'];
-                          final int sold = product['sold'];
-                          final int views = product['views'];
-                          final String rejectionReason =
-                              product['rejection_reason'] ?? '';
-                          final String rejectionRemark =
-                              product['rejection_remark'] ?? '';
+                        )
+                      : ListView.builder(
+                          padding: EdgeInsets.fromLTRB(16, 16, 16, 100),
+                          itemCount: products.length,
+                          itemBuilder: (context, index) {
+                            final product = products[index];
+                            final String title = product['title'];
+                            final double price = product['price'];
+                            final String thumbnail = product['thumbnail_url'];
+                            final String productId = product['id'];
+                            final String status = product['status'];
+                            final bool isActive = product['is_active'];
+                            final int sold = product['sold'];
+                            final int views = product['views'];
+                            final String rejectionReason =
+                                product['rejection_reason'] ?? '';
+                            final String rejectionRemark =
+                                product['rejection_remark'] ?? '';
 
-                          return TweenAnimationBuilder<double>(
-                            duration: Duration(
-                              milliseconds: 400 + (index * 100),
-                            ),
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, child) {
-                              return Transform.translate(
-                                offset: Offset(0, 20 * (1 - value)),
-                                child: Opacity(opacity: value, child: child),
-                              );
-                            },
-                            child: Container(
-                              margin: EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: status == 'rejected'
-                                    ? Colors
-                                          .grey[100] // lighten card if rejected
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
+                            return TweenAnimationBuilder<double>(
+                              duration: Duration(
+                                milliseconds: 400 + (index * 100),
                               ),
-                              child: Column(
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Thumbnail
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          child: Container(
-                                            width: 80,
-                                            height: 80,
-                                            color: Colors.grey[200],
-                                            child: thumbnail.isNotEmpty
-                                                ? Image.network(
-                                                    thumbnail,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder:
-                                                        (_, __, ___) => Icon(
-                                                          Icons.image_outlined,
-                                                          color:
-                                                              Colors.grey[400],
-                                                        ),
-                                                  )
-                                                : Icon(
-                                                    Icons.image_outlined,
-                                                    color: Colors.grey[400],
-                                                  ),
-                                          ),
-                                        ),
-                                        SizedBox(width: 12),
-
-                                        // Product Info
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      title,
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color:
-                                                            status == 'rejected'
-                                                            ? Colors
-                                                                  .grey // dim title
-                                                            : Color(0xFF2C3E50),
-                                                      ),
-                                                      maxLines: 2,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  // Rejection Badge stays bright
-                                                  _buildStatusBadge(
-                                                    status,
-                                                    rejectionReason,
-                                                    rejectionRemark,
-                                                  ),
-                                                ],
-                                              ),
-                                              SizedBox(height: 8),
-                                              Text(
-                                                "RM ${price.toStringAsFixed(2)}",
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: status == 'rejected'
-                                                      ? Colors
-                                                            .grey // dim price
-                                                      : Color(0xFF58C1D1),
-                                                ),
-                                              ),
-                                              SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  _buildInfoChip(
-                                                    Icons
-                                                        .shopping_cart_outlined,
-                                                    "$sold sold",
-                                                    Colors.green,
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  _buildInfoChip(
-                                                    Icons.visibility_outlined,
-                                                    "$views views",
-                                                    Colors.blue,
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) {
+                                return Transform.translate(
+                                  offset: Offset(0, 20 * (1 - value)),
+                                  child: Opacity(opacity: value, child: child),
+                                );
+                              },
+                              child: Container(
+                                margin: EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: status == 'rejected'
+                                      ? Colors
+                                            .grey[100] // lighten card if rejected
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 2),
                                     ),
-                                  ),
-
-                                  // Action Buttons
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[50],
-                                      borderRadius: BorderRadius.only(
-                                        bottomLeft: Radius.circular(16),
-                                        bottomRight: Radius.circular(16),
-                                      ),
-                                    ),
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // Active/Inactive Switch (hide if rejected)
-                                        if (status != 'rejected')
-                                          Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // Thumbnail
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
-                                            decoration: BoxDecoration(
-                                              color: isActive
-                                                  ? Colors.green.withOpacity(
-                                                      0.1,
+                                            child: Container(
+                                              width: 80,
+                                              height: 80,
+                                              color: Colors.grey[200],
+                                              child: thumbnail.isNotEmpty
+                                                  ? Image.network(
+                                                      thumbnail,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder:
+                                                          (_, __, ___) => Icon(
+                                                            Icons
+                                                                .image_outlined,
+                                                            color: Colors
+                                                                .grey[400],
+                                                          ),
                                                     )
-                                                  : Colors.grey.withOpacity(
-                                                      0.1,
+                                                  : Icon(
+                                                      Icons.image_outlined,
+                                                      color: Colors.grey[400],
                                                     ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
+                                          ),
+                                          SizedBox(width: 12),
+
+                                          // Product Info
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        title,
+                                                        style: TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color:
+                                                              status ==
+                                                                  'rejected'
+                                                              ? Colors
+                                                                    .grey // dim title
+                                                              : Color(
+                                                                  0xFF2C3E50,
+                                                                ),
+                                                        ),
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    // Rejection Badge stays bright
+                                                    _buildStatusBadge(
+                                                      status,
+                                                      rejectionReason,
+                                                      rejectionRemark,
+                                                    ),
+                                                  ],
+                                                ),
+                                                SizedBox(height: 8),
                                                 Text(
-                                                  isActive
-                                                      ? "Active"
-                                                      : "Inactive",
+                                                  "RM ${price.toStringAsFixed(2)}",
                                                   style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isActive
-                                                        ? Colors.green[700]
-                                                        : Colors.grey[600],
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: status == 'rejected'
+                                                        ? Colors
+                                                              .grey // dim price
+                                                        : Color(0xFF58C1D1),
                                                   ),
                                                 ),
-                                                SizedBox(width: 4),
-                                                Transform.scale(
-                                                  scale: 0.8,
-                                                  child: Switch(
-                                                    value: isActive,
-                                                    onChanged: (value) =>
-                                                        _toggleActive(
-                                                          productId,
-                                                          value,
-                                                        ),
-                                                    activeColor: Colors.green,
-                                                  ),
+                                                SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    _buildInfoChip(
+                                                      Icons
+                                                          .shopping_cart_outlined,
+                                                      "$sold sold",
+                                                      Colors.green,
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    _buildInfoChip(
+                                                      Icons.visibility_outlined,
+                                                      "$views views",
+                                                      Colors.blue,
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
                                           ),
-                                        Spacer(),
-
-                                        // Insight Button (disabled if rejected)
-                                        Opacity(
-                                          opacity: status == 'rejected'
-                                              ? 0.4
-                                              : 1.0,
-                                          child: IgnorePointer(
-                                            ignoring: status == 'rejected',
-                                            child: _buildActionButton(
-                                              Icons.insights_outlined,
-                                              Colors.purple,
-                                              () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        ProductInsightScreen(
-                                                          productId: productId,
-                                                          productTitle: title,
-                                                          price: price,
-                                                        ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(width: 8),
-
-                                        // Edit Button (disabled if rejected)
-                                        Opacity(
-                                          opacity: status == 'rejected'
-                                              ? 0.4
-                                              : 1.0,
-                                          child: IgnorePointer(
-                                            ignoring: status == 'rejected',
-                                            child: _buildActionButton(
-                                              Icons.edit_outlined,
-                                              Colors.blue,
-                                              () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        EditProductScreen(
-                                                          productId: productId,
-                                                        ),
-                                                  ),
-                                                ).then((_) => _fetchProducts());
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(width: 8),
-
-                                        // Delete Button always works and stays bright
-                                        _buildActionButton(
-                                          Icons.delete_outline,
-                                          Colors.red,
-                                          () => _showDeleteDialog(
-                                            title,
-                                            productId,
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+
+                                    // Action Buttons
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[50],
+                                        borderRadius: BorderRadius.only(
+                                          bottomLeft: Radius.circular(16),
+                                          bottomRight: Radius.circular(16),
+                                        ),
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // Active/Inactive Switch (hide if rejected)
+                                          if (status != 'rejected')
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: isActive
+                                                    ? Colors.green.withOpacity(
+                                                        0.1,
+                                                      )
+                                                    : Colors.grey.withOpacity(
+                                                        0.1,
+                                                      ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    isActive
+                                                        ? "Active"
+                                                        : "Inactive",
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: isActive
+                                                          ? Colors.green[700]
+                                                          : Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: 4),
+                                                  Transform.scale(
+                                                    scale: 0.8,
+                                                    child: Switch(
+                                                      value: isActive,
+                                                      onChanged: (value) =>
+                                                          _toggleActive(
+                                                            productId,
+                                                            value,
+                                                          ),
+                                                      activeColor: Colors.green,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          Spacer(),
+
+                                          // Insight Button (disabled if rejected)
+                                          Opacity(
+                                            opacity: status == 'rejected'
+                                                ? 0.4
+                                                : 1.0,
+                                            child: IgnorePointer(
+                                              ignoring: status == 'rejected',
+                                              child: _buildActionButton(
+                                                Icons.insights_outlined,
+                                                Colors.purple,
+                                                () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          ProductInsightScreen(
+                                                            productId:
+                                                                productId,
+                                                            productTitle: title,
+                                                            price: price,
+                                                          ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 8),
+
+                                          // Edit Button (disabled if rejected)
+                                          Opacity(
+                                            opacity: status == 'rejected'
+                                                ? 0.4
+                                                : 1.0,
+                                            child: IgnorePointer(
+                                              ignoring: status == 'rejected',
+                                              child: _buildActionButton(
+                                                Icons.edit_outlined,
+                                                Colors.blue,
+                                                () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          EditProductScreen(
+                                                            productId:
+                                                                productId,
+                                                          ),
+                                                    ),
+                                                  ).then(
+                                                    (_) => _fetchProducts(),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 8),
+
+                                          // Delete Button always works and stays bright
+                                          _buildActionButton(
+                                            Icons.delete_outline,
+                                            Colors.red,
+                                            () => _showDeleteDialog(
+                                              title,
+                                              productId,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                            );
+                          },
+                        ),
+                ),
               ),
             ],
           ),
